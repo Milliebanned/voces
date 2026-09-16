@@ -1,3 +1,6 @@
+import Link from "next/link";
+import { Wordmark } from "@/components/wordmark";
+
 const features = [
   {
     title: "Speak from the first minute",
@@ -33,23 +36,6 @@ const features = [
     ),
   },
 ];
-
-function Wordmark() {
-  return (
-    <div className="flex items-center gap-2.5">
-      <div className="flex h-4 items-center gap-[2.5px]">
-        {[6, 12, 16, 10, 6].map((height, i) => (
-          <span
-            key={i}
-            className="w-[3px] rounded-full bg-accent"
-            style={{ height }}
-          />
-        ))}
-      </div>
-      <span className="text-[15px] font-bold tracking-[0.16em]">VOCES</span>
-    </div>
-  );
-}
 
 function PhoneMockup() {
   return (
@@ -141,8 +127,14 @@ function PhoneMockup() {
 export default function Home() {
   return (
     <main className="flex-1">
-      <header className="mx-auto flex w-full max-w-6xl items-center px-6 py-6">
+      <header className="mx-auto flex w-full max-w-6xl items-center justify-between px-6 py-6">
         <Wordmark />
+        <Link
+          href="/login"
+          className="text-sm font-medium text-muted transition-colors hover:text-foreground"
+        >
+          Sign in
+        </Link>
       </header>
 
       <section className="relative overflow-hidden">
@@ -183,12 +175,18 @@ export default function Home() {
           </p>
 
           <div className="mt-10 flex flex-wrap items-center justify-center gap-3.5">
-            <button className="rounded-full bg-accent px-7 py-4 text-base font-semibold text-white transition-colors hover:bg-accent-hover">
+            <Link
+              href="/login"
+              className="rounded-full bg-accent px-7 py-4 text-base font-semibold text-white transition-colors hover:bg-accent-hover"
+            >
               Start Speaking
-            </button>
-            <button className="rounded-full border border-border bg-transparent px-7 py-4 text-base font-semibold transition-colors hover:bg-surface">
+            </Link>
+            <a
+              href="#how-it-works"
+              className="rounded-full border border-border bg-transparent px-7 py-4 text-base font-semibold transition-colors hover:bg-surface"
+            >
               See How It Works
-            </button>
+            </a>
           </div>
 
           <div className="mt-20">
@@ -197,7 +195,10 @@ export default function Home() {
         </div>
       </section>
 
-      <section className="mx-auto grid w-full max-w-6xl gap-6 px-6 py-24 md:grid-cols-3">
+      <section
+        id="how-it-works"
+        className="mx-auto grid w-full max-w-6xl scroll-mt-12 gap-6 px-6 py-24 md:grid-cols-3"
+      >
         {features.map((feature) => (
           <div
             key={feature.title}
