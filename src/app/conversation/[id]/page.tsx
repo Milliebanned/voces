@@ -69,6 +69,9 @@ export default async function ConversationPage({
       sessionId={session.id}
       languageLabel={languageName(session.target_language)!}
       direction={textDirection(session.target_language)}
+      targetLanguageCode={session.target_language}
+      nativeLanguageCode={profile.native_language ?? "en"}
+      translationDirection={textDirection(profile.native_language)}
       voice={voiceFor(session.target_language)}
       systemPrompt={systemPrompt}
       // Listing the native language alongside the target is what lets a learner

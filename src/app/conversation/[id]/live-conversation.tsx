@@ -3,12 +3,16 @@
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Wordmark } from "@/components/wordmark";
+import { prepareTranslator, type TranslatorStatus } from "@/lib/translator";
 import { saveTranscript, type Turn } from "./actions";
 
 type Props = {
   sessionId: string;
   languageLabel: string;
   direction: "ltr" | "rtl";
+  targetLanguageCode: string;
+  nativeLanguageCode: string;
+  translationDirection: "ltr" | "rtl";
   systemPrompt: string;
   languageCodes: string[];
   keyterms: string[];
@@ -42,12 +46,44 @@ export function LiveConversation({
   sessionId,
   languageLabel,
   direction,
+  targetLanguageCode,
+  nativeLanguageCode,
+  translationDirection,
   systemPrompt,
   languageCodes,
   keyterms,
   voice,
 }: Props) {
   const router = useRouter();
+
+  // Safe to read during render: the toggle only appears once a session is
+  // live, after a click, so server and client markup never disagree about it.
+  const [showTranslations, setShowTranslations] = useState(() => {
+    try {
+      return (
+        typeof window === "undefined" ||
+        localStorage.getItem("voces:translations") !== "hidden"
+      );
+    } catch {
+      return true;
+    }
+  });
+  const [translatorStatus, setTranslatorStatus] =
+    useState<TranslatorStatus>("loading");
+  const translatorRef = useRef<Awaited<
+    ReturnType<typeof prepareTranslator>
+  > | null>(null);
+
+  const toggleTranslations = useCallback(() => {
+    setShowTranslations((shown) => {
+      try {
+        localStorage.setItem("voces:translations", shown ? "hidden" : "shown");
+      } catch {
+        // Preference just won't persist.
+      }
+      return !shown;
+    });
+  }, []);
 
   const [status, setStatus] = useState<Status>("idle");
   const [error, setError] = useState<string | null>(null);
@@ -77,8 +113,23 @@ export function LiveConversation({
   const appendTurn = useCallback((role: Turn["role"], text: string) => {
     if (!text.trim()) return;
     const turn: Turn = { role, text, at: new Date().toISOString() };
+    const index = transcriptRef.current.length;
     transcriptRef.current = [...transcriptRef.current, turn];
     setTurns(transcriptRef.current);
+
+    // Captions trail the spoken line by a moment; the transcript is append-only,
+    // so the turn's index stays a stable address for the result.
+    translatorRef.current
+      ?.translate(text)
+      .then((translation) => {
+        const current = transcriptRef.current;
+        if (!translation || !current[index]) return;
+        const updated = [...current];
+        updated[index] = { ...current[index], translation };
+        transcriptRef.current = updated;
+        setTurns(updated);
+      })
+      .catch(() => {});
   }, []);
 
   const clearPlayback = useCallback(() => {
@@ -175,6 +226,18 @@ export function LiveConversation({
   );
 
   const start = useCallback(async () => {
+    // First, while this click still counts as a user gesture: Chrome only
+    // allows downloading a translation model with user activation.
+    if (!translatorRef.current) {
+      setTranslatorStatus("loading");
+      prepareTranslator(targetLanguageCode, nativeLanguageCode).then(
+        (translator) => {
+          translatorRef.current = translator;
+          setTranslatorStatus(translator ? "ready" : "unsupported");
+        },
+      );
+    }
+
     setStatus("connecting");
     setError(null);
 
@@ -273,7 +336,16 @@ export function LiveConversation({
       setStatus("error");
       teardown();
     }
-  }, [handleMessage, keyterms, languageCodes, systemPrompt, teardown, voice]);
+  }, [
+    handleMessage,
+    keyterms,
+    languageCodes,
+    nativeLanguageCode,
+    systemPrompt,
+    targetLanguageCode,
+    teardown,
+    voice,
+  ]);
 
   const save = useCallback(async () => {
     setStatus("ending");
@@ -418,12 +490,28 @@ export function LiveConversation({
                     VOCES
                   </span>
                   <p className="text-[17px] leading-relaxed">{turn.text}</p>
+                  {showTranslations && turn.translation && (
+                    <p
+                      dir={translationDirection}
+                      className="text-[13px] leading-relaxed text-muted/70"
+                    >
+                      {turn.translation}
+                    </p>
+                  )}
                 </div>
               ) : (
-                <div key={index} className="flex justify-end">
+                <div key={index} className="flex flex-col items-end gap-1.5">
                   <p className="max-w-[80%] rounded-2xl border border-border bg-surface px-4 py-3 text-[17px] leading-relaxed text-muted">
                     {turn.text}
                   </p>
+                  {showTranslations && turn.translation && (
+                    <p
+                      dir={translationDirection}
+                      className="max-w-[80%] px-1 text-[13px] leading-relaxed text-muted/70"
+                    >
+                      {turn.translation}
+                    </p>
+                  )}
                 </div>
               ),
             )}
@@ -467,6 +555,29 @@ export function LiveConversation({
               </span>
             </div>
 
+            <div className="flex items-center gap-3">
+            {translatorStatus === "unsupported" ? (
+              <span className="hidden text-[12px] text-muted sm:inline">
+                Translations need Chrome
+              </span>
+            ) : (
+              <button
+                type="button"
+                onClick={toggleTranslations}
+                aria-pressed={showTranslations}
+                className={`rounded-full px-4 py-3 text-[13px] font-medium transition-colors ${
+                  showTranslations
+                    ? "bg-accent-soft text-accent"
+                    : "text-muted hover:text-foreground"
+                }`}
+              >
+                {translatorStatus === "loading" && showTranslations
+                  ? "Preparing translation…"
+                  : showTranslations
+                    ? "Translation on"
+                    : "Translation off"}
+              </button>
+            )}
             <button
               onClick={end}
               disabled={status === "ending"}
@@ -474,6 +585,7 @@ export function LiveConversation({
             >
               {status === "ending" ? "Wrapping up…" : "End conversation"}
             </button>
+            </div>
           </div>
         </div>
       )}

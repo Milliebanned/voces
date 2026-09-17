@@ -88,12 +88,22 @@ export default async function AnalysisPage({
                       VOCES
                     </span>
                     <p className="text-[16px] leading-relaxed">{turn.text}</p>
+                    {turn.translation && (
+                      <p dir="auto" className="text-[13px] leading-relaxed text-muted/70">
+                        {turn.translation}
+                      </p>
+                    )}
                   </div>
                 ) : (
-                  <div key={index} className="flex justify-end">
+                  <div key={index} className="flex flex-col items-end gap-1.5">
                     <p className="max-w-[80%] rounded-2xl border border-border bg-surface px-4 py-3 text-[16px] leading-relaxed text-muted">
                       {turn.text}
                     </p>
+                    {turn.translation && (
+                      <p dir="auto" className="max-w-[80%] px-1 text-[13px] leading-relaxed text-muted/70">
+                        {turn.translation}
+                      </p>
+                    )}
                   </div>
                 ),
               )}

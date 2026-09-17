@@ -58,21 +58,37 @@ export default async function DashboardPage() {
     <main className="flex flex-1 flex-col">
       <header className="mx-auto flex w-full max-w-5xl items-center justify-between px-6 py-6">
         <Wordmark />
-        <form action={logout}>
-          <button
-            type="submit"
+        <div className="flex items-center gap-6">
+          <Link
+            href="/settings"
             className="text-sm font-medium text-muted transition-colors hover:text-foreground"
           >
-            Sign out
-          </button>
-        </form>
+            Settings
+          </Link>
+          <form action={logout}>
+            <button
+              type="submit"
+              className="text-sm font-medium text-muted transition-colors hover:text-foreground"
+            >
+              Sign out
+            </button>
+          </form>
+        </div>
       </header>
 
       <div className="mx-auto w-full max-w-5xl px-6 pb-24">
         <p className="text-sm font-medium text-muted">{greeting}</p>
-        <h1 className="mt-2 text-[32px] leading-tight font-bold tracking-[-0.02em]">
-          Your {languageName(targetLanguage)}
-        </h1>
+        <div className="mt-2 flex flex-wrap items-baseline gap-x-4 gap-y-1">
+          <h1 className="text-[32px] leading-tight font-bold tracking-[-0.02em]">
+            Your {languageName(targetLanguage)}
+          </h1>
+          <Link
+            href="/settings"
+            className="text-[13px] font-medium text-accent hover:underline"
+          >
+            Change language or level
+          </Link>
+        </div>
 
         <section className="mt-8 overflow-hidden rounded-3xl border border-border bg-surface">
           <div className="flex flex-col gap-6 p-8 sm:flex-row sm:items-center sm:justify-between">
