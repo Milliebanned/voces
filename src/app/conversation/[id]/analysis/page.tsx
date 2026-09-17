@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
+import { RecordingPlayer } from "@/components/recording-player";
 import { Wordmark } from "@/components/wordmark";
 import { languageName, textDirection } from "@/lib/languages";
 import { scenarioLabel } from "@/lib/scenarios";
@@ -20,7 +21,9 @@ export default async function AnalysisPage({
 
   const { data: session } = await supabase
     .from("sessions")
-    .select("id, target_language, scenario, started_at, ended_at, transcript")
+    .select(
+      "id, target_language, scenario, started_at, ended_at, transcript, agent_session_id",
+    )
     .eq("id", id)
     .single();
 
@@ -55,7 +58,13 @@ export default async function AnalysisPage({
             : "That one stayed quiet"}
         </h1>
 
-        <div className="mt-8 rounded-2xl border border-border bg-surface p-6">
+        {session.agent_session_id && (
+          <div className="mt-8">
+            <RecordingPlayer sessionId={session.id} size="full" />
+          </div>
+        )}
+
+        <div className="mt-6 rounded-2xl border border-border bg-surface p-6">
           <h2 className="text-[15px] font-semibold">Review coming next</h2>
           <p className="mt-2 text-[14px] leading-relaxed text-muted">
             Grammar notes, the words you reached for and couldn&apos;t find, and

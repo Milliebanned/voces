@@ -10,7 +10,6 @@ type Props = {
   languageLabel: string;
   direction: "ltr" | "rtl";
   systemPrompt: string;
-  greeting: string;
   languageCodes: string[];
   keyterms: string[];
   voice: string;
@@ -19,6 +18,10 @@ type Props = {
 type Status = "idle" | "connecting" | "live" | "ending" | "error";
 
 const SAMPLE_RATE = 24000;
+
+// A little headroom when playback restarts from silence, so the first chunks
+// of a reply don't underrun while the rest are still arriving.
+const PLAYBACK_LEAD_SECONDS = 0.05;
 
 function toBase64(bytes: Uint8Array) {
   let binary = "";
@@ -38,7 +41,6 @@ export function LiveConversation({
   languageLabel,
   direction,
   systemPrompt,
-  greeting,
   languageCodes,
   keyterms,
   voice,
@@ -54,16 +56,23 @@ export function LiveConversation({
   const [elapsed, setElapsed] = useState(0);
 
   const socketRef = useRef<WebSocket | null>(null);
-  const audioContextRef = useRef<AudioContext | null>(null);
+  const captureContextRef = useRef<AudioContext | null>(null);
   const streamRef = useRef<MediaStream | null>(null);
   const workletRef = useRef<AudioWorkletNode | null>(null);
 
-  // Chunks arrive faster than they play, so each one is scheduled against a
-  // moving playhead rather than started immediately, which would overlap them.
+  // Playback runs in its own context at the agent's native 24 kHz. Sharing the
+  // capture context would resample every chunk independently at the hardware
+  // rate, and the seams between chunks come out as crackle.
+  const playbackContextRef = useRef<AudioContext | null>(null);
   const playheadRef = useRef(0);
   const scheduledRef = useRef<AudioBufferSourceNode[]>([]);
+  // A chunk can split a 16-bit sample across its boundary; the dangling byte is
+  // held for the next chunk, otherwise every later sample is misaligned and
+  // plays as static.
+  const leftoverByteRef = useRef<number | null>(null);
+
   const transcriptRef = useRef<Turn[]>([]);
-  const endedRef = useRef(false);
+  const agentSessionIdRef = useRef<string | null>(null);
 
   const appendTurn = useCallback((role: Turn["role"], text: string) => {
     if (!text.trim()) return;
@@ -81,7 +90,8 @@ export function LiveConversation({
       }
     });
     scheduledRef.current = [];
-    playheadRef.current = audioContextRef.current?.currentTime ?? 0;
+    leftoverByteRef.current = null;
+    playheadRef.current = 0;
   }, []);
 
   const teardown = useCallback(() => {
@@ -89,34 +99,49 @@ export function LiveConversation({
     workletRef.current?.port.close();
     workletRef.current?.disconnect();
     streamRef.current?.getTracks().forEach((track) => track.stop());
-    audioContextRef.current?.close().catch(() => {});
+    captureContextRef.current?.close().catch(() => {});
+    playbackContextRef.current?.close().catch(() => {});
     socketRef.current?.close();
     workletRef.current = null;
     streamRef.current = null;
-    audioContextRef.current = null;
+    captureContextRef.current = null;
+    playbackContextRef.current = null;
     socketRef.current = null;
   }, [stopScheduledAudio]);
 
   const playChunk = useCallback((base64: string) => {
-    const context = audioContextRef.current;
+    const context = playbackContextRef.current;
     if (!context) return;
 
-    const bytes = fromBase64(base64);
-    const samples = new Int16Array(
-      bytes.buffer,
-      bytes.byteOffset,
-      Math.floor(bytes.byteLength / 2),
-    );
+    let bytes = fromBase64(base64);
+    if (leftoverByteRef.current !== null) {
+      const joined = new Uint8Array(bytes.length + 1);
+      joined[0] = leftoverByteRef.current;
+      joined.set(bytes, 1);
+      bytes = joined;
+      leftoverByteRef.current = null;
+    }
+    if (bytes.length % 2 === 1) {
+      leftoverByteRef.current = bytes[bytes.length - 1];
+      bytes = bytes.subarray(0, bytes.length - 1);
+    }
+    if (bytes.length === 0) return;
 
-    const buffer = context.createBuffer(1, samples.length, SAMPLE_RATE);
+    const view = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength);
+    const sampleCount = bytes.length / 2;
+    const buffer = context.createBuffer(1, sampleCount, SAMPLE_RATE);
     const channel = buffer.getChannelData(0);
-    for (let i = 0; i < samples.length; i++) channel[i] = samples[i] / 32768;
+    for (let i = 0; i < sampleCount; i++) {
+      channel[i] = view.getInt16(i * 2, true) / 32768;
+    }
 
     const source = context.createBufferSource();
     source.buffer = buffer;
     source.connect(context.destination);
 
-    playheadRef.current = Math.max(playheadRef.current, context.currentTime);
+    if (playheadRef.current < context.currentTime) {
+      playheadRef.current = context.currentTime + PLAYBACK_LEAD_SECONDS;
+    }
     source.start(playheadRef.current);
     playheadRef.current += buffer.duration;
 
@@ -132,7 +157,11 @@ export function LiveConversation({
 
       switch (message.type) {
         case "session.ready":
+          agentSessionIdRef.current = message.session_id ?? null;
           setStatus("live");
+          // No fixed greeting: that field is spoken verbatim, so it can't adapt
+          // to the scenario. Asking for a reply lets the system prompt open.
+          socketRef.current?.send(JSON.stringify({ type: "reply.create" }));
           break;
         case "input.speech.started":
           setUserSpeaking(true);
@@ -161,13 +190,11 @@ export function LiveConversation({
           break;
         case "reply.done":
           setAgentSpeaking(false);
+          leftoverByteRef.current = null;
           break;
         case "session.error":
           setError(message.message ?? "The session hit an error.");
           setStatus("error");
-          break;
-        case "session.ended":
-          endedRef.current = true;
           break;
       }
     },
@@ -193,9 +220,11 @@ export function LiveConversation({
 
       // Left at the hardware rate: forcing 24 kHz silently disables echo
       // cancellation in Firefox and Safari, so the worklet resamples instead.
-      const context = new AudioContext();
-      audioContextRef.current = context;
-      await context.audioWorklet.addModule("/pcm-processor.js");
+      const captureContext = new AudioContext();
+      captureContextRef.current = captureContext;
+      await captureContext.audioWorklet.addModule("/pcm-processor.js");
+
+      playbackContextRef.current = new AudioContext({ sampleRate: SAMPLE_RATE });
 
       const socket = new WebSocket(
         `wss://agents.assemblyai.com/v1/ws?token=${encodeURIComponent(token)}`,
@@ -208,7 +237,6 @@ export function LiveConversation({
             type: "session.update",
             session: {
               system_prompt: systemPrompt,
-              greeting,
               output: { voice },
               input: {
                 language_codes: languageCodes,
@@ -226,10 +254,10 @@ export function LiveConversation({
           }),
         );
 
-        const source = context.createMediaStreamSource(stream);
-        const worklet = new AudioWorkletNode(context, "pcm-processor", {
+        const source = captureContext.createMediaStreamSource(stream);
+        const worklet = new AudioWorkletNode(captureContext, "pcm-processor", {
           processorOptions: {
-            inputSampleRate: context.sampleRate,
+            inputSampleRate: captureContext.sampleRate,
             targetSampleRate: SAMPLE_RATE,
           },
         });
@@ -260,15 +288,7 @@ export function LiveConversation({
       setStatus("error");
       teardown();
     }
-  }, [
-    greeting,
-    handleMessage,
-    keyterms,
-    languageCodes,
-    systemPrompt,
-    teardown,
-    voice,
-  ]);
+  }, [handleMessage, keyterms, languageCodes, systemPrompt, teardown, voice]);
 
   const end = useCallback(async () => {
     setStatus("ending");
@@ -278,7 +298,11 @@ export function LiveConversation({
     }
     teardown();
 
-    await saveTranscript(sessionId, transcriptRef.current);
+    await saveTranscript(
+      sessionId,
+      transcriptRef.current,
+      agentSessionIdRef.current,
+    );
     router.push(`/conversation/${sessionId}/analysis`);
   }, [router, sessionId, teardown]);
 
@@ -367,7 +391,7 @@ export function LiveConversation({
           <div className="flex flex-col gap-6 pt-4" dir={direction}>
             {turns.length === 0 && !partial && (
               <p className="text-[15px] text-muted" dir="ltr">
-                Listening — say hello.
+                Connected — your partner is about to speak.
               </p>
             )}
 

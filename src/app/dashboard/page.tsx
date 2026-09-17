@@ -1,7 +1,9 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
+import { RecordingPlayer } from "@/components/recording-player";
 import { Wordmark } from "@/components/wordmark";
 import { languageName } from "@/lib/languages";
+import { scenarioLabel } from "@/lib/scenarios";
 import { createClient } from "@/lib/supabase/server";
 import { logout } from "../login/actions";
 
@@ -40,10 +42,12 @@ export default async function DashboardPage() {
         .limit(5),
       supabase
         .from("sessions")
-        .select("id, scenario, mode, started_at, status")
+        .select("id, scenario, started_at, agent_session_id")
         .eq("target_language", targetLanguage)
+        // Sessions opened but never started are noise, not history.
+        .neq("status", "active")
         .order("started_at", { ascending: false })
-        .limit(4),
+        .limit(5),
     ]);
 
   const greeting = profile.display_name
@@ -140,13 +144,18 @@ export default async function DashboardPage() {
                 {sessions.map((session) => (
                   <li
                     key={session.id}
-                    className="flex items-baseline justify-between gap-4 border-b border-border pb-3 last:border-0 last:pb-0"
+                    className="flex items-center gap-3 border-b border-border pb-3 last:border-0 last:pb-0"
                   >
+                    {session.agent_session_id ? (
+                      <RecordingPlayer sessionId={session.id} />
+                    ) : (
+                      <span className="size-9 shrink-0" />
+                    )}
                     <Link
                       href={`/conversation/${session.id}/analysis`}
-                      className="text-[15px] font-medium hover:text-accent"
+                      className="flex-1 text-[15px] font-medium hover:text-accent"
                     >
-                      {session.scenario ?? "Free conversation"}
+                      {scenarioLabel(session.scenario) ?? "Free conversation"}
                     </Link>
                     <span className="text-[13px] text-muted">
                       {formatDate(session.started_at)}

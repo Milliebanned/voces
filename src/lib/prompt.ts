@@ -86,12 +86,3 @@ export function buildSystemPrompt({
 
   return sections.join("\n\n");
 }
-
-export function buildGreeting(
-  targetLanguage: string,
-  displayName: string | null,
-): string {
-  return `Greet ${
-    displayName ?? "them"
-  } in ${targetLanguage} in one short, friendly sentence, and ask them one easy opening question.`;
-}

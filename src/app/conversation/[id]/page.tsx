@@ -1,6 +1,6 @@
 import { notFound, redirect } from "next/navigation";
 import { languageName, textDirection, voiceFor } from "@/lib/languages";
-import { buildGreeting, buildSystemPrompt } from "@/lib/prompt";
+import { buildSystemPrompt } from "@/lib/prompt";
 import { scenarioPrompt } from "@/lib/scenarios";
 import { createClient } from "@/lib/supabase/server";
 import { selectReinforcementCandidates } from "@/lib/vocabulary";
@@ -71,10 +71,6 @@ export default async function ConversationPage({
       direction={textDirection(session.target_language)}
       voice={voiceFor(session.target_language)}
       systemPrompt={systemPrompt}
-      greeting={buildGreeting(
-        languageName(session.target_language)!,
-        profile.display_name,
-      )}
       // Listing the native language alongside the target is what lets a learner
       // drop an English word mid-sentence and still be transcribed correctly.
       languageCodes={[
