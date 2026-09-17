@@ -3,7 +3,7 @@
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Wordmark } from "@/components/wordmark";
-import { openMicrophone } from "@/lib/microphone";
+import { isEchoOf } from "@/lib/echo";
 import { prepareTranslator, type TranslatorStatus } from "@/lib/translator";
 import { saveTranscript, type Turn } from "./actions";
 
@@ -29,6 +29,7 @@ type Status =
   | "save-failed";
 
 const SAMPLE_RATE = 24000;
+const ECHO_TAIL_MS = 300;
 
 function toBase64(bytes: Uint8Array) {
   let binary = "";
@@ -93,7 +94,16 @@ export function LiveConversation({
   const [agentSpeaking, setAgentSpeaking] = useState(false);
   const [userSpeaking, setUserSpeaking] = useState(false);
   const [elapsed, setElapsed] = useState(0);
-  const [headsetNotice, setHeadsetNotice] = useState<string | null>(null);
+  const [echoDetected, setEchoDetected] = useState(false);
+
+  // Speaker echo: at just 2% loudness, the agent's own voice picked up by the
+  // mic is enough for it to interrupt itself and then answer its own words.
+  // Once that is seen, the mic is muted only while the agent is audible.
+  const agentPlayingRef = useRef(false);
+  const agentStoppedAtRef = useRef(0);
+  const agentSpeechRef = useRef("");
+  const speechBeganOverAgentRef = useRef(false);
+  const echoGuardRef = useRef(false);
 
   const socketRef = useRef<WebSocket | null>(null);
   const captureContextRef = useRef<AudioContext | null>(null);
@@ -111,6 +121,8 @@ export function LiveConversation({
 
   const transcriptRef = useRef<Turn[]>([]);
   const agentSessionIdRef = useRef<string | null>(null);
+  // The socket's close listener is registered before `save` is defined.
+  const saveRef = useRef<(() => Promise<void>) | null>(null);
 
   const appendTurn = useCallback((role: Turn["role"], text: string) => {
     if (!text.trim()) return;
@@ -194,6 +206,10 @@ export function LiveConversation({
           socketRef.current?.send(JSON.stringify({ type: "reply.create" }));
           break;
         case "input.speech.started":
+          // Room reverb keeps echo going a moment after playback stops.
+          speechBeganOverAgentRef.current =
+            agentPlayingRef.current ||
+            performance.now() - agentStoppedAtRef.current < ECHO_TAIL_MS;
           setUserSpeaking(true);
           // Barge-in: drop whatever the agent still had queued.
           clearPlayback();
@@ -206,7 +222,20 @@ export function LiveConversation({
           break;
         case "transcript.user":
           setPartial("");
+          if (
+            !echoGuardRef.current &&
+            speechBeganOverAgentRef.current &&
+            isEchoOf(message.text ?? "", agentSpeechRef.current)
+          ) {
+            echoGuardRef.current = true;
+            setEchoDetected(true);
+          }
           appendTurn("user", message.text ?? "");
+          break;
+        case "transcript.agent.delta":
+          agentSpeechRef.current = `${agentSpeechRef.current} ${
+            message.delta ?? ""
+          }`.slice(-600);
           break;
         case "reply.audio":
           playChunk(message.data);
@@ -251,9 +280,10 @@ export function LiveConversation({
       }
       const { token } = await response.json();
 
-      const { stream, avoidedHeadset } = await openMicrophone();
+      const stream = await navigator.mediaDevices.getUserMedia({
+        audio: { echoCancellation: true, noiseSuppression: false },
+      });
       streamRef.current = stream;
-      setHeadsetNotice(avoidedHeadset);
 
       // Left at the hardware rate: forcing 24 kHz silently disables echo
       // cancellation in Firefox and Safari, so the worklet resamples instead.
@@ -270,7 +300,10 @@ export function LiveConversation({
       // Driven by what is actually audible, not by when the reply was sent,
       // so the indicator doesn't stop while the voice is still playing.
       player.port.onmessage = ({ data }) => {
-        setAgentSpeaking(data.type === "playing");
+        const playing = data.type === "playing";
+        agentPlayingRef.current = playing;
+        if (!playing) agentStoppedAtRef.current = performance.now();
+        setAgentSpeaking(playing);
       };
       player.connect(playbackContext.destination);
       playerRef.current = player;
@@ -290,18 +323,12 @@ export function LiveConversation({
               input: {
                 language_codes: languageCodes,
                 keyterms: keyterms.length > 0 ? keyterms : undefined,
-                // Silence thresholds are deliberately left unset. Setting either
-                // one switches off adaptive pacing, which is what gives someone
-                // who pauses to search for a word more room. Fixed values made
-                // every reply wait the full maximum and still cut learners off
-                // mid-thought.
-                turn_detection: {
-                  interrupt_response: true,
-                  // When a learner resumes after a pause the agent has already
-                  // started answering, and every moment it keeps talking is
-                  // spent talking over them. Half the default grace period.
-                  interruption_delay: 250,
-                },
+                // Silence thresholds and interruption delay are deliberately left
+                // at their defaults. Setting either threshold switches off the
+                // adaptive pacing that gives a learner who pauses more room, and
+                // a shorter interruption delay makes speaker echo far more likely
+                // to cut the agent off.
+                turn_detection: { interrupt_response: true },
               },
             },
           }),
@@ -318,11 +345,16 @@ export function LiveConversation({
 
         worklet.port.onmessage = (event: MessageEvent<ArrayBuffer>) => {
           if (socket.readyState !== WebSocket.OPEN) return;
+          const muted =
+            echoGuardRef.current &&
+            (agentPlayingRef.current ||
+              performance.now() - agentStoppedAtRef.current < ECHO_TAIL_MS);
+          // Silence rather than nothing, so the stream keeps its timing.
+          const pcm = muted
+            ? new Uint8Array(event.data.byteLength)
+            : new Uint8Array(event.data);
           socket.send(
-            JSON.stringify({
-              type: "input.audio",
-              audio: toBase64(new Uint8Array(event.data)),
-            }),
+            JSON.stringify({ type: "input.audio", audio: toBase64(pcm) }),
           );
         };
 
@@ -330,9 +362,20 @@ export function LiveConversation({
       });
 
       socket.addEventListener("message", handleMessage);
-      socket.addEventListener("error", () => {
-        setError("Lost the connection to the voice service.");
-        setStatus("error");
+      // "close" always follows "error", and also fires on its own when the
+      // service ends the session (a dropped network, the session time cap).
+      // Without handling it the screen would sit on "live" with nothing
+      // listening.
+      socket.addEventListener("close", () => {
+        if (socketRef.current !== socket) return;
+        teardown();
+        if (transcriptRef.current.length > 0) {
+          // Keep what was said: treat it as the end of the conversation.
+          saveRef.current?.();
+        } else {
+          setError("Lost the connection to the voice service.");
+          setStatus("error");
+        }
       });
     } catch (cause) {
       setError(
@@ -369,6 +412,10 @@ export function LiveConversation({
     }
     router.push(`/conversation/${sessionId}/analysis`);
   }, [router, sessionId]);
+
+  useEffect(() => {
+    saveRef.current = save;
+  }, [save]);
 
   const end = useCallback(async () => {
     if (socketRef.current?.readyState === WebSocket.OPEN) {
@@ -482,13 +529,15 @@ export function LiveConversation({
 
         {(status === "live" || status === "ending") && (
           <div className="flex flex-col gap-6 pt-4" dir={direction}>
-            {headsetNotice && (
+            {echoDetected && (
               <p
                 dir="ltr"
                 className="rounded-2xl border border-border bg-surface px-4 py-3 text-[13px] leading-relaxed text-muted"
               >
-                Listening through your computer&apos;s microphone instead of{" "}
-                {headsetNotice}, so your headphones stay in high-quality audio.
+                Your mic was picking up the voice from your speakers, so
+                it&apos;s now muted while your partner talks. Wait for them to
+                finish before you reply, or use headphones to talk over them
+                freely.
               </p>
             )}
             {turns.length === 0 && !partial && (
