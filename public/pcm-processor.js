@@ -12,6 +12,14 @@ class PCMProcessor extends AudioWorkletProcessor {
     this.targetSampleRate = targetSampleRate ?? 24000;
     this.ratio = this.inputSampleRate / this.targetSampleRate;
     this.carry = 0;
+
+    // The audio thread renders 128 frames at a time, which would mean hundreds
+    // of WebSocket messages a second, each one base64-encoded on the main
+    // thread that also has to keep the agent's voice playing smoothly. 50 ms
+    // batches keep latency low without flooding it.
+    this.batchSize = Math.round(this.targetSampleRate * 0.05);
+    this.batch = new Int16Array(this.batchSize);
+    this.batchLength = 0;
   }
 
   process(inputs) {
@@ -46,12 +54,17 @@ class PCMProcessor extends AudioWorkletProcessor {
   }
 
   send(samples, length) {
-    const pcm16 = new Int16Array(length);
     for (let i = 0; i < length; i++) {
       const clamped = Math.max(-1, Math.min(1, samples[i]));
-      pcm16[i] = Math.round(clamped * 32767);
+      this.batch[this.batchLength++] = Math.round(clamped * 32767);
+
+      if (this.batchLength === this.batchSize) {
+        const full = this.batch;
+        this.port.postMessage(full.buffer, [full.buffer]);
+        this.batch = new Int16Array(this.batchSize);
+        this.batchLength = 0;
+      }
     }
-    this.port.postMessage(pcm16.buffer, [pcm16.buffer]);
   }
 }
 

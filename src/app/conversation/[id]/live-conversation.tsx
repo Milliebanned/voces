@@ -15,13 +15,15 @@ type Props = {
   voice: string;
 };
 
-type Status = "idle" | "connecting" | "live" | "ending" | "error";
+type Status =
+  | "idle"
+  | "connecting"
+  | "live"
+  | "ending"
+  | "error"
+  | "save-failed";
 
 const SAMPLE_RATE = 24000;
-
-// A little headroom when playback restarts from silence, so the first chunks
-// of a reply don't underrun while the rest are still arriving.
-const PLAYBACK_LEAD_SECONDS = 0.05;
 
 function toBase64(bytes: Uint8Array) {
   let binary = "";
@@ -60,12 +62,10 @@ export function LiveConversation({
   const streamRef = useRef<MediaStream | null>(null);
   const workletRef = useRef<AudioWorkletNode | null>(null);
 
-  // Playback runs in its own context at the agent's native 24 kHz. Sharing the
-  // capture context would resample every chunk independently at the hardware
-  // rate, and the seams between chunks come out as crackle.
+  // Playback runs in its own context at the agent's native 24 kHz, fed into a
+  // worklet that plays one continuous stream on the audio thread.
   const playbackContextRef = useRef<AudioContext | null>(null);
-  const playheadRef = useRef(0);
-  const scheduledRef = useRef<AudioBufferSourceNode[]>([]);
+  const playerRef = useRef<AudioWorkletNode | null>(null);
   // A chunk can split a 16-bit sample across its boundary; the dangling byte is
   // held for the next chunk, otherwise every later sample is misaligned and
   // plays as static.
@@ -81,21 +81,16 @@ export function LiveConversation({
     setTurns(transcriptRef.current);
   }, []);
 
-  const stopScheduledAudio = useCallback(() => {
-    scheduledRef.current.forEach((source) => {
-      try {
-        source.stop();
-      } catch {
-        // Already finished playing.
-      }
-    });
-    scheduledRef.current = [];
+  const clearPlayback = useCallback(() => {
+    playerRef.current?.port.postMessage({ type: "clear" });
     leftoverByteRef.current = null;
-    playheadRef.current = 0;
   }, []);
 
   const teardown = useCallback(() => {
-    stopScheduledAudio();
+    clearPlayback();
+    playerRef.current?.port.close();
+    playerRef.current?.disconnect();
+    playerRef.current = null;
     workletRef.current?.port.close();
     workletRef.current?.disconnect();
     streamRef.current?.getTracks().forEach((track) => track.stop());
@@ -107,11 +102,11 @@ export function LiveConversation({
     captureContextRef.current = null;
     playbackContextRef.current = null;
     socketRef.current = null;
-  }, [stopScheduledAudio]);
+  }, [clearPlayback]);
 
   const playChunk = useCallback((base64: string) => {
-    const context = playbackContextRef.current;
-    if (!context) return;
+    const player = playerRef.current;
+    if (!player) return;
 
     let bytes = fromBase64(base64);
     if (leftoverByteRef.current !== null) {
@@ -127,28 +122,10 @@ export function LiveConversation({
     }
     if (bytes.length === 0) return;
 
-    const view = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength);
-    const sampleCount = bytes.length / 2;
-    const buffer = context.createBuffer(1, sampleCount, SAMPLE_RATE);
-    const channel = buffer.getChannelData(0);
-    for (let i = 0; i < sampleCount; i++) {
-      channel[i] = view.getInt16(i * 2, true) / 32768;
-    }
-
-    const source = context.createBufferSource();
-    source.buffer = buffer;
-    source.connect(context.destination);
-
-    if (playheadRef.current < context.currentTime) {
-      playheadRef.current = context.currentTime + PLAYBACK_LEAD_SECONDS;
-    }
-    source.start(playheadRef.current);
-    playheadRef.current += buffer.duration;
-
-    scheduledRef.current.push(source);
-    source.onended = () => {
-      scheduledRef.current = scheduledRef.current.filter((s) => s !== source);
-    };
+    // Copied into a standalone buffer so it can be transferred to the audio
+    // thread without copying again.
+    const pcm = bytes.slice().buffer;
+    player.port.postMessage({ type: "audio", buffer: pcm }, [pcm]);
   }, []);
 
   const handleMessage = useCallback(
@@ -166,8 +143,7 @@ export function LiveConversation({
         case "input.speech.started":
           setUserSpeaking(true);
           // Barge-in: drop whatever the agent still had queued.
-          stopScheduledAudio();
-          setAgentSpeaking(false);
+          clearPlayback();
           break;
         case "input.speech.stopped":
           setUserSpeaking(false);
@@ -179,9 +155,6 @@ export function LiveConversation({
           setPartial("");
           appendTurn("user", message.text ?? "");
           break;
-        case "reply.started":
-          setAgentSpeaking(true);
-          break;
         case "reply.audio":
           playChunk(message.data);
           break;
@@ -189,7 +162,7 @@ export function LiveConversation({
           appendTurn("agent", message.text ?? "");
           break;
         case "reply.done":
-          setAgentSpeaking(false);
+          playerRef.current?.port.postMessage({ type: "end" });
           leftoverByteRef.current = null;
           break;
         case "session.error":
@@ -198,7 +171,7 @@ export function LiveConversation({
           break;
       }
     },
-    [appendTurn, playChunk, stopScheduledAudio],
+    [appendTurn, clearPlayback, playChunk],
   );
 
   const start = useCallback(async () => {
@@ -224,7 +197,19 @@ export function LiveConversation({
       captureContextRef.current = captureContext;
       await captureContext.audioWorklet.addModule("/pcm-processor.js");
 
-      playbackContextRef.current = new AudioContext({ sampleRate: SAMPLE_RATE });
+      const playbackContext = new AudioContext({ sampleRate: SAMPLE_RATE });
+      playbackContextRef.current = playbackContext;
+      await playbackContext.audioWorklet.addModule("/playback-processor.js");
+      const player = new AudioWorkletNode(playbackContext, "playback-processor", {
+        outputChannelCount: [1],
+      });
+      // Driven by what is actually audible, not by when the reply was sent,
+      // so the indicator doesn't stop while the voice is still playing.
+      player.port.onmessage = ({ data }) => {
+        setAgentSpeaking(data.type === "playing");
+      };
+      player.connect(playbackContext.destination);
+      playerRef.current = player;
 
       const socket = new WebSocket(
         `wss://agents.assemblyai.com/v1/ws?token=${encodeURIComponent(token)}`,
@@ -290,21 +275,31 @@ export function LiveConversation({
     }
   }, [handleMessage, keyterms, languageCodes, systemPrompt, teardown, voice]);
 
-  const end = useCallback(async () => {
+  const save = useCallback(async () => {
     setStatus("ending");
-
-    if (socketRef.current?.readyState === WebSocket.OPEN) {
-      socketRef.current.send(JSON.stringify({ type: "session.end" }));
-    }
-    teardown();
-
-    await saveTranscript(
+    const { error: saveError } = await saveTranscript(
       sessionId,
       transcriptRef.current,
       agentSessionIdRef.current,
     );
+
+    // The transcript only exists in memory at this point, so a failed save
+    // must stay on screen with a retry rather than navigate away and lose it.
+    if (saveError) {
+      setError(saveError);
+      setStatus("save-failed");
+      return;
+    }
     router.push(`/conversation/${sessionId}/analysis`);
-  }, [router, sessionId, teardown]);
+  }, [router, sessionId]);
+
+  const end = useCallback(async () => {
+    if (socketRef.current?.readyState === WebSocket.OPEN) {
+      socketRef.current.send(JSON.stringify({ type: "session.end" }));
+    }
+    teardown();
+    await save();
+  }, [save, teardown]);
 
   useEffect(() => {
     if (status !== "live") return;
@@ -371,6 +366,27 @@ export function LiveConversation({
           <p className="flex flex-1 items-center justify-center text-[15px] text-muted">
             Connecting…
           </p>
+        )}
+
+        {status === "save-failed" && (
+          <div className="flex flex-1 flex-col items-center justify-center text-center">
+            <h1 className="text-[24px] leading-tight font-bold tracking-[-0.02em]">
+              Your conversation didn&apos;t save
+            </h1>
+            <p className="mt-3 max-w-[420px] text-[14px] leading-relaxed text-muted">
+              It&apos;s still here — don&apos;t close this tab. Try again, and
+              if it keeps failing, send this on:
+            </p>
+            <p className="mt-4 max-w-[420px] rounded-2xl bg-accent-soft px-5 py-4 font-mono text-[12px] leading-relaxed text-accent">
+              {error}
+            </p>
+            <button
+              onClick={save}
+              className="mt-6 rounded-full bg-accent px-7 py-4 text-base font-semibold text-white transition-colors hover:bg-accent-hover"
+            >
+              Try saving again
+            </button>
+          </div>
         )}
 
         {status === "error" && (

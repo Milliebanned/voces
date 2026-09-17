@@ -19,7 +19,7 @@ export default async function AnalysisPage({
 
   if (!user) redirect("/login");
 
-  const { data: session } = await supabase
+  const { data: session, error } = await supabase
     .from("sessions")
     .select(
       "id, target_language, scenario, started_at, ended_at, transcript, agent_session_id",
@@ -27,6 +27,9 @@ export default async function AnalysisPage({
     .eq("id", id)
     .single();
 
+  // PGRST116 is "no rows": a genuinely missing (or someone else's) session.
+  // Anything else is a real failure and should not masquerade as a 404.
+  if (error && error.code !== "PGRST116") throw new Error(error.message);
   if (!session) notFound();
 
   const transcript = (session.transcript ?? []) as Turn[];
