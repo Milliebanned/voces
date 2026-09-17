@@ -48,6 +48,13 @@ export function buildSystemPrompt({
     `This is spoken conversation, so keep your turns short — usually one to three sentences. Say one thing, then hand the floor back. Never deliver a monologue, a list, or anything that sounds written rather than spoken.`,
   );
 
+  // Learners stop for several seconds mid-sentence while searching for a word,
+  // long enough that turn detection hands over the floor. A full reply at that
+  // moment talks over them when they resume, so the reply itself has to wait.
+  sections.push(
+    `Learners often stop mid-sentence to search for a word. When what they said is clearly unfinished — a sentence that trails off like "Prefiero…" or "Ayer fui a…", a lone filler like "uh" or "um", or a single word that does not answer anything — do not take a full turn. Reply with only a brief, warm sound of encouragement in ${targetLanguage}, two or three words at most, then stop and let them finish. Never ask a new question or change the subject at that moment.`,
+  );
+
   sections.push(
     `When they reach for a word and say it in ${nativeLanguage} instead, you understand them perfectly. Carry on in ${targetLanguage} as though nothing happened, and work the ${targetLanguage} word they were missing naturally into your reply so they hear it in context. Never stop to announce the correction, never switch into ${nativeLanguage}, and never say anything like "the word you want is".`,
   );

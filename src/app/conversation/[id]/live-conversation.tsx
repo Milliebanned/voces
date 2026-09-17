@@ -3,6 +3,7 @@
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Wordmark } from "@/components/wordmark";
+import { openMicrophone } from "@/lib/microphone";
 import { prepareTranslator, type TranslatorStatus } from "@/lib/translator";
 import { saveTranscript, type Turn } from "./actions";
 
@@ -92,6 +93,7 @@ export function LiveConversation({
   const [agentSpeaking, setAgentSpeaking] = useState(false);
   const [userSpeaking, setUserSpeaking] = useState(false);
   const [elapsed, setElapsed] = useState(0);
+  const [headsetNotice, setHeadsetNotice] = useState<string | null>(null);
 
   const socketRef = useRef<WebSocket | null>(null);
   const captureContextRef = useRef<AudioContext | null>(null);
@@ -249,10 +251,9 @@ export function LiveConversation({
       }
       const { token } = await response.json();
 
-      const stream = await navigator.mediaDevices.getUserMedia({
-        audio: { echoCancellation: true, noiseSuppression: false },
-      });
+      const { stream, avoidedHeadset } = await openMicrophone();
       streamRef.current = stream;
+      setHeadsetNotice(avoidedHeadset);
 
       // Left at the hardware rate: forcing 24 kHz silently disables echo
       // cancellation in Firefox and Safari, so the worklet resamples instead.
@@ -289,13 +290,17 @@ export function LiveConversation({
               input: {
                 language_codes: languageCodes,
                 keyterms: keyterms.length > 0 ? keyterms : undefined,
+                // Silence thresholds are deliberately left unset. Setting either
+                // one switches off adaptive pacing, which is what gives someone
+                // who pauses to search for a word more room. Fixed values made
+                // every reply wait the full maximum and still cut learners off
+                // mid-thought.
                 turn_detection: {
-                  // Learners pause mid-sentence while they search for a word,
-                  // so the agent waits longer than it would for a native
-                  // speaker before taking its turn.
-                  min_silence: 900,
-                  max_silence: 2600,
                   interrupt_response: true,
+                  // When a learner resumes after a pause the agent has already
+                  // started answering, and every moment it keeps talking is
+                  // spent talking over them. Half the default grace period.
+                  interruption_delay: 250,
                 },
               },
             },
@@ -477,6 +482,15 @@ export function LiveConversation({
 
         {(status === "live" || status === "ending") && (
           <div className="flex flex-col gap-6 pt-4" dir={direction}>
+            {headsetNotice && (
+              <p
+                dir="ltr"
+                className="rounded-2xl border border-border bg-surface px-4 py-3 text-[13px] leading-relaxed text-muted"
+              >
+                Listening through your computer&apos;s microphone instead of{" "}
+                {headsetNotice}, so your headphones stay in high-quality audio.
+              </p>
+            )}
             {turns.length === 0 && !partial && (
               <p className="text-[15px] text-muted" dir="ltr">
                 Connected — your partner is about to speak.
