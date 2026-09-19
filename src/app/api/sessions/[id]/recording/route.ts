@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { createClient } from "@/lib/supabase/server";
+import { createClient, currentUser } from "@/lib/supabase/server";
 
 type Artifact = { type: string; url: string; content_type: string };
 
@@ -13,9 +13,7 @@ export async function GET(
   const { id } = await params;
 
   const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await currentUser(supabase);
 
   if (!user) {
     return NextResponse.json({ error: "Not signed in." }, { status: 401 });

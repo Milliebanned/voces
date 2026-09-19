@@ -1,15 +1,14 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
+import { NewConversationLink } from "@/components/new-conversation-link";
 import { Wordmark } from "@/components/wordmark";
 import { languageName } from "@/lib/languages";
-import { createClient } from "@/lib/supabase/server";
+import { createClient, currentUser } from "@/lib/supabase/server";
 import { addVocabularyItem, deleteVocabularyItem } from "./actions";
 
 export default async function VocabularyPage() {
   const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await currentUser(supabase);
 
   if (!user) redirect("/login");
 
@@ -23,7 +22,9 @@ export default async function VocabularyPage() {
 
   const { data: items } = await supabase
     .from("vocabulary_items")
-    .select("id, text, translation, source, confidence_score, created_at")
+    .select(
+      "id, text, translation, example, source, session_id, confidence_score, created_at",
+    )
     .eq("target_language", profile.target_language ?? "")
     .order("created_at", { ascending: false });
 
@@ -33,12 +34,15 @@ export default async function VocabularyPage() {
         <Link href="/dashboard">
           <Wordmark />
         </Link>
-        <Link
-          href="/dashboard"
-          className="text-sm font-medium text-muted transition-colors hover:text-foreground"
-        >
-          Dashboard
-        </Link>
+        <div className="flex items-center gap-5">
+          <Link
+            href="/dashboard"
+            className="text-sm font-medium text-muted transition-colors hover:text-foreground"
+          >
+            Dashboard
+          </Link>
+          <NewConversationLink />
+        </div>
       </header>
 
       <div className="mx-auto w-full max-w-3xl px-6 pb-24">
@@ -89,14 +93,27 @@ export default async function VocabularyPage() {
                       {item.translation}
                     </span>
                   )}
+                  {item.example && (
+                    <span className="text-[13px] text-muted/80 italic">
+                      &ldquo;{item.example}&rdquo;
+                    </span>
+                  )}
                 </div>
 
                 <div className="flex items-center gap-4">
-                  {item.source === "session" && (
-                    <span className="rounded-full bg-accent-soft px-3 py-1 text-[11px] font-semibold tracking-wide text-accent">
-                      FROM A SESSION
-                    </span>
-                  )}
+                  {item.source === "session" &&
+                    (item.session_id ? (
+                      <Link
+                        href={`/conversation/${item.session_id}/analysis`}
+                        className="rounded-full bg-accent-soft px-3 py-1 text-[11px] font-semibold tracking-wide text-accent hover:underline"
+                      >
+                        FROM A SESSION
+                      </Link>
+                    ) : (
+                      <span className="rounded-full bg-accent-soft px-3 py-1 text-[11px] font-semibold tracking-wide text-accent">
+                        FROM A SESSION
+                      </span>
+                    ))}
                   <form action={deleteVocabularyItem}>
                     <input type="hidden" name="id" value={item.id} />
                     <button

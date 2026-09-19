@@ -6,14 +6,12 @@ import {
   SKILL_LEVELS,
   TARGET_LANGUAGES,
 } from "@/lib/languages";
-import { createClient } from "@/lib/supabase/server";
+import { createClient, currentUser } from "@/lib/supabase/server";
 import { completeOnboarding } from "./actions";
 
 export default async function OnboardingPage() {
   const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await currentUser(supabase);
 
   if (!user) redirect("/login");
 

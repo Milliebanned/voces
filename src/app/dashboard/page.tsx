@@ -1,10 +1,12 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
+import { DeleteSessionButton } from "@/components/delete-session-button";
+import { Flashcards } from "@/components/flashcards";
 import { RecordingPlayer } from "@/components/recording-player";
 import { Wordmark } from "@/components/wordmark";
-import { languageName } from "@/lib/languages";
+import { languageName, textDirection } from "@/lib/languages";
 import { scenarioLabel } from "@/lib/scenarios";
-import { createClient } from "@/lib/supabase/server";
+import { createClient, currentUser } from "@/lib/supabase/server";
 import { logout } from "../login/actions";
 
 function formatDate(value: string) {
@@ -16,9 +18,7 @@ function formatDate(value: string) {
 
 export default async function DashboardPage() {
   const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await currentUser(supabase);
 
   if (!user) redirect("/login");
 
@@ -36,10 +36,13 @@ export default async function DashboardPage() {
     await Promise.all([
       supabase
         .from("vocabulary_items")
-        .select("id, text, translation, confidence_score", { count: "exact" })
+        .select("id, text, translation, example, confidence_score", {
+          count: "exact",
+        })
         .eq("target_language", targetLanguage)
+        // Weakest first, so the deck opens on what most needs practice.
         .order("confidence_score", { ascending: true })
-        .limit(5),
+        .limit(20),
       supabase
         .from("sessions")
         .select("id, scenario, started_at, agent_session_id")
@@ -114,7 +117,7 @@ export default async function DashboardPage() {
           <section className="rounded-3xl border border-border bg-surface p-7">
             <div className="flex items-baseline justify-between">
               <h2 className="text-[17px] font-semibold tracking-[-0.01em]">
-                Needs work
+                Vocabulary bank
               </h2>
               <Link
                 href="/vocabulary"
@@ -125,19 +128,10 @@ export default async function DashboardPage() {
             </div>
 
             {weakest && weakest.length > 0 ? (
-              <ul className="mt-5 flex flex-col gap-3">
-                {weakest.map((item) => (
-                  <li
-                    key={item.id}
-                    className="flex items-baseline justify-between gap-4 border-b border-border pb-3 last:border-0 last:pb-0"
-                  >
-                    <span className="text-[15px] font-medium">{item.text}</span>
-                    <span className="text-right text-[13px] text-muted">
-                      {item.translation}
-                    </span>
-                  </li>
-                ))}
-              </ul>
+              <Flashcards
+                cards={weakest}
+                direction={textDirection(targetLanguage)}
+              />
             ) : (
               <p className="mt-5 text-sm leading-relaxed text-muted">
                 Nothing saved yet. Words you stumble over in conversation land
@@ -176,6 +170,7 @@ export default async function DashboardPage() {
                     <span className="text-[13px] text-muted">
                       {formatDate(session.started_at)}
                     </span>
+                    <DeleteSessionButton sessionId={session.id} />
                   </li>
                 ))}
               </ul>

@@ -43,9 +43,10 @@ export async function proxy(request: NextRequest) {
 
   // Nothing may run between creating the client and this call, or session
   // refresh becomes unreliable and users get logged out at random.
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  // getClaims refreshes an expired session like getUser did, but verifies the
+  // token locally instead of asking the Auth server on every request.
+  const { data } = await supabase.auth.getClaims();
+  const user = data?.claims.sub;
 
   if (!user && !isPublic(request.nextUrl.pathname)) {
     const url = request.nextUrl.clone();

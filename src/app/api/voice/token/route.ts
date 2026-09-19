@@ -1,13 +1,11 @@
 import { NextResponse } from "next/server";
-import { createClient } from "@/lib/supabase/server";
+import { createClient, currentUser } from "@/lib/supabase/server";
 
 // Tokens are single-use and short-lived, but they still spend against our
 // AssemblyAI account, so only signed-in learners can mint one.
 export async function GET() {
   const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await currentUser(supabase);
 
   if (!user) {
     return NextResponse.json({ error: "Not signed in." }, { status: 401 });

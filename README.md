@@ -53,6 +53,7 @@ npm run dev
 | Variable | Where to get it |
 | --- | --- |
 | `ASSEMBLYAI_API_KEY` | [assemblyai.com](https://www.assemblyai.com/) dashboard — server-side only |
+| `ANALYSIS_MODEL` | Optional. [LLM Gateway model](https://www.assemblyai.com/docs/llm-gateway/available-models) for the post-session review; defaults to `qwen3.5-4b-32k-fast` |
 | `NEXT_PUBLIC_SUPABASE_URL` | Supabase project settings → API |
 | `NEXT_PUBLIC_SUPABASE_ANON_KEY` | Supabase project settings → API |
 | `SUPABASE_SERVICE_ROLE_KEY` | Supabase project settings → API — server-side only, never expose |

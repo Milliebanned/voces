@@ -3,14 +3,12 @@ import { redirect } from "next/navigation";
 import { Wordmark } from "@/components/wordmark";
 import { isSupportedTarget, languageName } from "@/lib/languages";
 import { SCENARIOS } from "@/lib/scenarios";
-import { createClient } from "@/lib/supabase/server";
+import { createClient, currentUser } from "@/lib/supabase/server";
 import { startConversation } from "./actions";
 
 export default async function NewConversationPage() {
   const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await currentUser(supabase);
 
   if (!user) redirect("/login");
 
