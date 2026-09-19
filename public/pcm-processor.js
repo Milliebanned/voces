@@ -4,6 +4,34 @@
 // Chromium honours a forced 24 kHz AudioContext, but Firefox and Safari ignore
 // it and silently disable echo cancellation, so the resampling happens here
 // instead and the context is left at the hardware rate.
+//
+// Downsampling has to low-pass first. Plain interpolation folded everything
+// between 12 and 24 kHz back down on top of the 0-12 kHz speech band as false
+// energy, right where the consonants that tell "pasta" from "basta" live. A
+// windowed-sinc filter below the new Nyquist now runs before interpolation
+// whenever the rate actually drops.
+const TAPS = 63;
+
+function lowPassKernel(cutoff) {
+  // cutoff as a fraction of the input sample rate
+  const kernel = new Float32Array(TAPS);
+  const middle = (TAPS - 1) / 2;
+  let sum = 0;
+  for (let i = 0; i < TAPS; i++) {
+    const n = i - middle;
+    const sinc = n === 0 ? 2 * cutoff : Math.sin(2 * Math.PI * cutoff * n) / (Math.PI * n);
+    // Blackman window: -74 dB stopband, plenty for speech.
+    const window =
+      0.42 -
+      0.5 * Math.cos((2 * Math.PI * i) / (TAPS - 1)) +
+      0.08 * Math.cos((4 * Math.PI * i) / (TAPS - 1));
+    kernel[i] = sinc * window;
+    sum += kernel[i];
+  }
+  for (let i = 0; i < TAPS; i++) kernel[i] /= sum;
+  return kernel;
+}
+
 class PCMProcessor extends AudioWorkletProcessor {
   constructor(options) {
     super();
@@ -12,6 +40,16 @@ class PCMProcessor extends AudioWorkletProcessor {
     this.targetSampleRate = targetSampleRate ?? 24000;
     this.ratio = this.inputSampleRate / this.targetSampleRate;
     this.carry = 0;
+
+    // Only needed when the rate goes down. Cut just under the new Nyquist
+    // (0.45 of the output rate) so the transition band is spent above speech.
+    this.kernel =
+      this.ratio > 1
+        ? lowPassKernel((0.45 * this.targetSampleRate) / this.inputSampleRate)
+        : null;
+    // The last TAPS-1 input samples, so filtering is continuous across the
+    // 128-frame render blocks.
+    this.history = new Float32Array(TAPS - 1);
 
     // The audio thread renders 128 frames at a time, which would mean hundreds
     // of WebSocket messages a second, each one base64-encoded on the main
@@ -22,16 +60,36 @@ class PCMProcessor extends AudioWorkletProcessor {
     this.batchLength = 0;
   }
 
+  lowPass(input) {
+    const kernel = this.kernel;
+    const history = this.history;
+    const joined = new Float32Array(history.length + input.length);
+    joined.set(history);
+    joined.set(input, history.length);
+
+    const out = new Float32Array(input.length);
+    for (let i = 0; i < input.length; i++) {
+      let acc = 0;
+      for (let k = 0; k < TAPS; k++) acc += joined[i + k] * kernel[k];
+      out[i] = acc;
+    }
+    this.history = joined.slice(joined.length - history.length);
+    return out;
+  }
+
   process(inputs) {
-    const input = inputs[0]?.[0];
-    if (!input || input.length === 0) return true;
+    const raw = inputs[0]?.[0];
+    if (!raw || raw.length === 0) return true;
 
     if (this.ratio === 1) {
-      this.send(input, input.length);
+      this.send(raw, raw.length);
       return true;
     }
 
-    // Linear interpolation is enough for speech at these rates.
+    const input = this.kernel ? this.lowPass(raw) : raw;
+
+    // With the band already limited, linear interpolation between samples is
+    // enough to land on the new rate.
     const outLength = Math.floor((input.length - this.carry) / this.ratio);
     if (outLength <= 0) {
       this.carry -= input.length;

@@ -165,6 +165,9 @@ export function LiveConversation({
   const [userSpeaking, setUserSpeaking] = useState(false);
   const [elapsed, setElapsed] = useState(0);
   const [echoDetected, setEchoDetected] = useState(false);
+  // Set when the microphone in use can only send narrowband audio, named so
+  // the learner knows which device to switch away from.
+  const [lowQualityMic, setLowQualityMic] = useState<string | null>(null);
   const [micMuted, setMicMuted] = useState(false);
   const [speakerMuted, setSpeakerMuted] = useState(false);
   const micMutedRef = useRef(false);
@@ -546,6 +549,25 @@ export function LiveConversation({
         },
       });
       streamRef.current = stream;
+
+      // Recordings of real sessions showed the learner's audio cut off above
+      // about 5 kHz, with the consonants that tell "pasta" from "basta" gone
+      // before it ever reached the recogniser. A Bluetooth headset's mic does
+      // exactly that: using it switches the headset into its call profile.
+      const track = stream.getAudioTracks()[0];
+      const settings = track?.getSettings() ?? {};
+      console.info(
+        `[voces] microphone "${track?.label ?? "unknown"}" at ${settings.sampleRate ?? "?"} Hz`,
+      );
+      if (
+        track &&
+        ((settings.sampleRate !== undefined && settings.sampleRate <= 16000) ||
+          /airpods|bluetooth|hands-?free|headset|buds|beats|bose|sony wh|jabra/i.test(
+            track.label,
+          ))
+      ) {
+        setLowQualityMic(track.label || "your headset");
+      }
       console.info(
         `[voces] echo cancellation ${echoCancellation ? "on" : "off"}, auto gain control off`,
       );
@@ -692,7 +714,12 @@ export function LiveConversation({
           );
         };
 
-        source.connect(worklet);
+        // Rumble below 80 Hz (desk knocks, fans, handling) was over half the
+        // energy in recorded learner audio and carries no speech.
+        const highPass = captureContext.createBiquadFilter();
+        highPass.type = "highpass";
+        highPass.frequency.value = 80;
+        source.connect(highPass).connect(worklet);
       });
 
       socket.addEventListener("message", handleMessage);
@@ -1051,6 +1078,15 @@ export function LiveConversation({
           >
             <div className="mx-auto w-full max-w-[1280px] px-5 md:px-20">
               <div className="flex max-w-[620px] flex-col gap-[18px] pt-10 pb-6 md:gap-[22px] md:pt-16" dir={direction}>
+                {lowQualityMic && (
+                  <p dir="ltr" className="rounded-2xl bg-black/45 px-4 py-3 text-[13px] leading-relaxed text-white/85 backdrop-blur-sm">
+                    You&apos;re speaking into {lowQualityMic}. Headset
+                    microphones send low-quality audio, so words can be
+                    misheard. For better recognition, switch to your
+                    computer&apos;s built-in microphone (the mic icon in the
+                    address bar) and keep the headphones for listening.
+                  </p>
+                )}
                 {echoDetected && (
                   <p dir="ltr" className="rounded-2xl bg-black/45 px-4 py-3 text-[13px] leading-relaxed text-white/85 backdrop-blur-sm">
                     Your mic was picking up the voice from your speakers, so
