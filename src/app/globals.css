@@ -2,25 +2,26 @@
 
 :root {
   /* surfaces */
-  --background: #fdf8f3;
-  --surface: #fffdfb;
-  --border: #ece1d5;
+  --background: #faf6ef;
+  --surface: #fffcf7;
+  --border: #ece1d3;
 
   /* type */
-  --foreground: #1a1512;
-  --muted: #8b8178;
+  --foreground: #131518;
+  --muted: #8c9196;
 
   /* brand */
-  --accent: #ed7014;
-  --accent-hover: #d46110;
-  --accent-soft: rgba(237, 112, 20, 0.12);
-  --accent-glow: rgba(237, 112, 20, 0.25);
+  --accent: #ed6a28;
+  --accent-hover: #d9601c;
+  --accent-deep: #c74d17;
+  --accent-soft: rgba(237, 106, 40, 0.12);
+  --accent-glow: rgba(237, 106, 40, 0.25);
 
   /* wave stack, lightest crest to deepest trough */
-  --wave-1: #fbe2ce;
-  --wave-2: #f8c79f;
-  --wave-3: #f29a5c;
-  --wave-4: #e8692a;
+  --wave-1: #f6d7b7;
+  --wave-2: #e97c2a;
+  --wave-3: #df641e;
+  --wave-4: #c74d17;
 }
 
 @theme inline {
@@ -31,18 +32,19 @@
   --color-muted: var(--muted);
   --color-accent: var(--accent);
   --color-accent-hover: var(--accent-hover);
+  --color-accent-deep: var(--accent-deep);
   --color-accent-soft: var(--accent-soft);
   --color-wave-1: var(--wave-1);
   --color-wave-2: var(--wave-2);
   --color-wave-3: var(--wave-3);
   --color-wave-4: var(--wave-4);
 
-  --font-sans: var(--font-geist-sans);
+  --font-sans: var(--font-inter);
   --font-mono: var(--font-geist-mono);
 }
 
 body {
   background: var(--background);
   color: var(--foreground);
-  font-family: var(--font-geist-sans), system-ui, sans-serif;
+  font-family: var(--font-inter), system-ui, sans-serif;
 }

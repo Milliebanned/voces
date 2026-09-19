@@ -1,18 +1,39 @@
-const BAR_HEIGHTS = [6, 12, 16, 10, 6];
+// Mark proportions taken from the brand artwork: five rounded bars inside a
+// square, heights relative to the tallest centre bar.
+const BAR_RATIOS = [0.29, 0.62, 1, 0.62, 0.27];
+const BAR_WIDTH = 0.125; // of the mark height
+const BAR_GAP = 0.094;
 
-export function Wordmark({ className = "" }: { className?: string }) {
+export function Wordmark({
+  size = 20,
+  className = "",
+}: {
+  size?: number;
+  className?: string;
+}) {
   return (
-    <div className={`flex items-center gap-2.5 ${className}`}>
-      <div className="flex h-4 items-center gap-[2.5px]">
-        {BAR_HEIGHTS.map((height, i) => (
+    <div
+      className={`flex items-center ${className}`}
+      style={{ gap: size * 0.208 }}
+    >
+      <div
+        className="flex items-center"
+        style={{ height: size, gap: size * BAR_GAP }}
+      >
+        {BAR_RATIOS.map((ratio, i) => (
           <span
             key={i}
-            className="w-[3px] rounded-full bg-accent"
-            style={{ height }}
+            className="rounded-full bg-accent"
+            style={{ width: size * BAR_WIDTH, height: size * ratio }}
           />
         ))}
       </div>
-      <span className="text-[15px] font-bold tracking-[0.16em]">VOCES</span>
+      <span
+        className="font-extrabold text-accent"
+        style={{ fontSize: size * 0.6875, letterSpacing: "0.04em" }}
+      >
+        VOCES
+      </span>
     </div>
   );
 }
