@@ -10,6 +10,7 @@ import {
   useState,
 } from "react";
 import { Flag } from "@/components/flag";
+import { Landmark } from "@/components/landmarks";
 import { isEchoOf } from "@/lib/echo";
 import { prepareTranslator, type TranslatorStatus } from "@/lib/translator";
 import { saveTranscript, type Turn } from "./actions";
@@ -837,7 +838,7 @@ export function LiveConversation({
 
   return (
     <main className="fixed inset-0 flex flex-col overflow-hidden bg-[#14110A] text-white">
-      <DuskScene />
+      <DuskScene code={targetLanguageCode} />
 
       <header className="relative z-10 flex h-[66px] shrink-0 items-center justify-between gap-3 px-5 md:h-[76px] md:px-10">
         <div className="flex items-center gap-4">
@@ -1193,10 +1194,9 @@ function UserBubble({
   );
 }
 
-// The dusk city from the design, drawn behind everything. The desktop scene
-// keeps its towers right of centre so the transcript column stays clear; the
-// narrow one moves the main tower left.
-function DuskScene() {
+// The dusk city from the design, drawn behind everything, with a landmark
+// from the country of the language being practised on its skyline.
+function DuskScene({ code }: { code: string }) {
   return (
     <div aria-hidden className="pointer-events-none absolute inset-0">
       <svg viewBox="0 0 1280 800" preserveAspectRatio="xMidYMax slice" fill="none" className="absolute inset-0 hidden size-full md:block">
@@ -1239,33 +1239,8 @@ function DuskScene() {
           <ellipse cx="900" cy="270" rx="380" ry="13" />
         </g>
         <path d="M0 402 C 220 386 400 396 620 390 C 840 384 1060 396 1280 382 L 1280 450 L 0 450 Z" fill="#7A5436" fillOpacity="0.5" />
-        <g fill="#8A6636">
-          <path d="M956 196 L962 150 L968 196 Z" />
-          <path d="M924 250 C 924 222 936 206 962 196 C 988 206 1000 222 1000 250 Z" />
-          <rect x="920" y="244" width="84" height="286" />
-          <path d="M906 300 L912 266 L918 300 Z" />
-          <path d="M1006 300 L1012 266 L1018 300 Z" />
-          <rect x="896" y="296" width="30" height="234" />
-          <rect x="998" y="296" width="30" height="234" />
-        </g>
-        <path d="M920 244 L962 220 L1004 244 Z" fill="#5E4224" />
-        <g fill="#E0A85C">
-          <rect x="936" y="286" width="16" height="34" rx="8" />
-          <rect x="972" y="286" width="16" height="34" rx="8" />
-          <rect x="938" y="366" width="14" height="30" rx="7" />
-          <rect x="972" y="366" width="14" height="30" rx="7" />
-          <rect x="902" y="378" width="12" height="26" rx="6" />
-          <rect x="1006" y="378" width="12" height="26" rx="6" />
-        </g>
-        <g fill="#7E5B2F">
-          <path d="M1168 332 L1174 296 L1180 332 Z" />
-          <path d="M1148 372 C 1148 352 1156 340 1174 332 C 1192 340 1200 352 1200 372 Z" />
-          <rect x="1146" y="368" width="56" height="176" />
-        </g>
-        <g fill="#D9A24E">
-          <rect x="1158" y="404" width="13" height="28" rx="6.5" />
-          <rect x="1178" y="404" width="13" height="28" rx="6.5" />
-        </g>
+        {/* Right of centre, so the transcript column stays clear. */}
+        <Landmark code={code} x={880} baseline={530} />
         <g fill="#7A4A26">
           <path d="M0 486 L120 452 L246 486 L246 570 L0 570 Z" />
           <path d="M300 500 L420 466 L544 500 L544 578 L300 578 Z" />
@@ -1321,33 +1296,7 @@ function DuskScene() {
           <ellipse cx="270" cy="262" rx="120" ry="12" />
         </g>
         <path d="M0 392 C 70 376 130 386 190 380 C 250 374 320 384 390 372 L 390 430 L 0 430 Z" fill="#7A5436" fillOpacity="0.55" />
-        <g fill="#8A6636">
-          <path d="M96 214 L100 178 L104 214 Z" />
-          <path d="M78 256 C 78 234 86 222 100 214 C 114 222 122 234 122 256 Z" />
-          <rect x="76" y="252" width="48" height="230" />
-          <path d="M70 300 L74 274 L78 300 Z" />
-          <path d="M122 300 L126 274 L130 300 Z" />
-          <rect x="64" y="298" width="18" height="184" />
-          <rect x="118" y="298" width="18" height="184" />
-        </g>
-        <path d="M76 252 L100 238 L124 252 Z" fill="#5E4224" />
-        <g fill="#E0A85C">
-          <rect x="86" y="286" width="12" height="26" rx="6" />
-          <rect x="104" y="286" width="12" height="26" rx="6" />
-          <rect x="88" y="342" width="10" height="22" rx="5" />
-          <rect x="104" y="342" width="10" height="22" rx="5" />
-          <rect x="68" y="352" width="9" height="20" rx="4.5" />
-          <rect x="123" y="352" width="9" height="20" rx="4.5" />
-        </g>
-        <g fill="#7E5B2F">
-          <path d="M332 330 L336 300 L340 330 Z" />
-          <path d="M318 364 C 318 348 324 338 336 330 C 348 338 354 348 354 364 Z" />
-          <rect x="316" y="360" width="40" height="150" />
-        </g>
-        <g fill="#D9A24E">
-          <rect x="324" y="392" width="10" height="22" rx="5" />
-          <rect x="338" y="392" width="10" height="22" rx="5" />
-        </g>
+        <Landmark code={code} x={24} baseline={488} scale={0.6} />
         <g fill="#7A4A26">
           <path d="M0 470 L44 442 L92 470 L92 540 L0 540 Z" />
           <path d="M130 486 L180 458 L232 486 L232 548 L130 548 Z" />
