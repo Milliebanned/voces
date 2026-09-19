@@ -759,6 +759,37 @@ export function LiveConversation({
   const minutes = String(Math.floor(elapsed / 60)).padStart(2, "0");
   const seconds = String(elapsed % 60).padStart(2, "0");
 
+  // Keeps the newest line in view as the conversation grows, unless the
+  // learner has scrolled up to reread something: then it waits until they
+  // come back near the bottom rather than pulling them away mid-read.
+  const followRef = useRef(true);
+
+  useEffect(() => {
+    let lastY = window.scrollY;
+    const onScroll = () => {
+      const fromBottom =
+        document.documentElement.scrollHeight - window.innerHeight - window.scrollY;
+      if (fromBottom < 160) {
+        followRef.current = true;
+      } else if (window.scrollY < lastY - 2) {
+        // Only an upward scroll opts out. A smooth scroll towards a line that
+        // just grew the page also reads as "far from the bottom" part-way.
+        followRef.current = false;
+      }
+      lastY = window.scrollY;
+    };
+    window.addEventListener("scroll", onScroll, { passive: true });
+    return () => window.removeEventListener("scroll", onScroll);
+  }, []);
+
+  useEffect(() => {
+    if (!followRef.current) return;
+    window.scrollTo({
+      top: document.documentElement.scrollHeight,
+      behavior: "smooth",
+    });
+  }, [turns, caption, partial, showTranslations, echoDetected]);
+
   return (
     <main className="flex flex-1 flex-col">
       <header className="mx-auto flex w-full max-w-2xl items-center justify-between px-6 py-6">
