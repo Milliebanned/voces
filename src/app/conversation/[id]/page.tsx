@@ -1,8 +1,8 @@
 import { notFound, redirect } from "next/navigation";
 import { languageName, textDirection, voiceFor } from "@/lib/languages";
-import { buildSystemPrompt } from "@/lib/prompt";
+import { buildSystemPrompt, buildTranscriptionPrompt } from "@/lib/prompt";
 import { scenarioPrompt } from "@/lib/scenarios";
-import { createClient } from "@/lib/supabase/server";
+import { createClient, currentUser } from "@/lib/supabase/server";
 import { selectReinforcementCandidates } from "@/lib/vocabulary";
 import { LiveConversation } from "./live-conversation";
 
@@ -12,9 +12,7 @@ export default async function ConversationPage({
   const { id } = await params;
 
   const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await currentUser(supabase);
 
   if (!user) redirect("/login");
 
@@ -55,6 +53,7 @@ export default async function ConversationPage({
 
   const systemPrompt = buildSystemPrompt({
     displayName: profile.display_name,
+    targetLanguageCode: session.target_language,
     targetLanguage: languageName(session.target_language)!,
     nativeLanguage: languageName(profile.native_language)!,
     skillLevel: profile.skill_level ?? "intermediate",
@@ -62,6 +61,7 @@ export default async function ConversationPage({
     scenario: scenarioPrompt(session.scenario),
     reinforcement,
     topicsDiscussed: (memory?.topics_discussed as string[]) ?? [],
+    sessionSeed: session.id,
   });
 
   return (
@@ -74,6 +74,12 @@ export default async function ConversationPage({
       translationDirection={textDirection(profile.native_language)}
       voice={voiceFor(session.target_language)}
       systemPrompt={systemPrompt}
+      transcriptionPrompt={buildTranscriptionPrompt({
+        targetLanguage: languageName(session.target_language)!,
+        nativeLanguage: languageName(profile.native_language)!,
+        skillLevel: profile.skill_level ?? "intermediate",
+        scenario: scenarioPrompt(session.scenario),
+      })}
       // Listing the native language alongside the target is what lets a learner
       // drop an English word mid-sentence and still be transcribed correctly.
       languageCodes={[

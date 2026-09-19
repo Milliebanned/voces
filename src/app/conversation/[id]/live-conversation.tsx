@@ -15,6 +15,7 @@ type Props = {
   nativeLanguageCode: string;
   translationDirection: "ltr" | "rtl";
   systemPrompt: string;
+  transcriptionPrompt: string;
   languageCodes: string[];
   keyterms: string[];
   voice: string;
@@ -31,9 +32,50 @@ type Status =
 const SAMPLE_RATE = 24000;
 const ECHO_TAIL_MS = 300;
 
+// Left adaptive, end-of-turn almost never fired early for a learner: across
+// five recorded sessions nearly every reply started 3.07-3.3 s after they
+// stopped, which is the service's 3000 ms fallback. The semantic check is
+// rarely sure of accented, mixed-language speech, so it ran out the clock.
+// The same sessions show replies can start in 0.6 s once the turn ends, so the
+// wait is set explicitly: end after 500 ms of silence when the sentence reads
+// as complete, and after 1.5 s regardless.
+const TURN_DETECTION = {
+  interrupt_response: true,
+  // The 500 ms default makes barge-in feel like the agent ploughs on over you.
+  // 200 ms still rides above the echo the guard catches.
+  interruption_delay: 200,
+  min_silence: 500,
+  max_silence: 1500,
+};
+
+// Answering a question is where a learner pauses longest to find the words,
+// so after the agent asks one they get more room, until they have answered.
+const THINKING_TURN_DETECTION = {
+  ...TURN_DETECTION,
+  min_silence: 700,
+  max_silence: 2200,
+};
+
+// A beginner in a real session sat silent for 29 seconds after a reply that
+// gave them nothing easy to answer, and the agent simply waited. After this
+// much quiet, the agent is asked to offer an easy way back in. At 8 seconds it
+// cut in while learners were still composing an answer, and a second nudge in a
+// row just re-asked its own question, so it waits longer and only once.
+const NUDGE_AFTER_MS = 15000;
+const MAX_NUDGES_IN_A_ROW = 1;
+
+// Built in blocks rather than one character at a time. This runs on the same
+// thread that has to keep handing audio to the playback worklet, twenty times a
+// second for the microphone alone, and appending to a string per byte was long
+// enough to show up as gaps in the agent's voice.
 function toBase64(bytes: Uint8Array) {
+  const BLOCK = 0x8000;
   let binary = "";
-  for (let i = 0; i < bytes.length; i++) binary += String.fromCharCode(bytes[i]);
+  for (let i = 0; i < bytes.length; i += BLOCK) {
+    binary += String.fromCharCode(
+      ...bytes.subarray(i, Math.min(i + BLOCK, bytes.length)),
+    );
+  }
   return btoa(binary);
 }
 
@@ -52,6 +94,7 @@ export function LiveConversation({
   nativeLanguageCode,
   translationDirection,
   systemPrompt,
+  transcriptionPrompt,
   languageCodes,
   keyterms,
   voice,
@@ -91,6 +134,9 @@ export function LiveConversation({
   const [error, setError] = useState<string | null>(null);
   const [turns, setTurns] = useState<Turn[]>([]);
   const [partial, setPartial] = useState("");
+  // The agent's line while it is still being spoken, revealed in step with the
+  // audio rather than when the text arrived.
+  const [caption, setCaption] = useState<string | null>(null);
   const [agentSpeaking, setAgentSpeaking] = useState(false);
   const [userSpeaking, setUserSpeaking] = useState(false);
   const [elapsed, setElapsed] = useState(0);
@@ -104,6 +150,15 @@ export function LiveConversation({
   const agentSpeechRef = useRef("");
   const speechBeganOverAgentRef = useRef(false);
   const echoGuardRef = useRef(false);
+  // Whether the longer thinking-time turn detection is currently applied.
+  const thinkingTimeRef = useRef(false);
+
+  const userSpeakingRef = useRef(false);
+  // From the moment the learner stops talking until the agent's reply is done,
+  // silence is the agent's to break, not the learner's.
+  const replyInFlightRef = useRef(true);
+  const quietSinceRef = useRef(0);
+  const nudgesInARowRef = useRef(0);
 
   const socketRef = useRef<WebSocket | null>(null);
   const captureContextRef = useRef<AudioContext | null>(null);
@@ -119,31 +174,103 @@ export function LiveConversation({
   // plays as static.
   const leftoverByteRef = useRef<number | null>(null);
 
+  // Each transcript.agent.delta carries the word and the moment it is spoken
+  // within the reply (start_ms), so the caption can be driven off how much
+  // audio has actually reached the speakers instead of guessing a speech rate.
+  // The whole reply's text lands in a burst about a second in, some fifteen to
+  // twenty-five seconds before the voice finishes saying it, so without this it
+  // arrives as one lump wildly ahead of what is being heard.
+  const agentWordsRef = useRef<{ delta: string; startMs: number }[]>([]);
+  const agentFinalRef = useRef<string | null>(null);
+  const agentCommittedRef = useRef(true);
+  const revealedCountRef = useRef(0);
+  // The agent's line goes into the transcript only once the voice has finished
+  // it, but the text itself is known far earlier. Translating on arrival rather
+  // than on commit is worth the whole of that gap.
+  const agentTranslationRef = useRef<Promise<string | null> | null>(null);
+
   const transcriptRef = useRef<Turn[]>([]);
   const agentSessionIdRef = useRef<string | null>(null);
   // The socket's close listener is registered before `save` is defined.
   const saveRef = useRef<(() => Promise<void>) | null>(null);
 
-  const appendTurn = useCallback((role: Turn["role"], text: string) => {
-    if (!text.trim()) return;
-    const turn: Turn = { role, text, at: new Date().toISOString() };
-    const index = transcriptRef.current.length;
-    transcriptRef.current = [...transcriptRef.current, turn];
-    setTurns(transcriptRef.current);
+  const translate = useCallback((text: string) => {
+    const translator = translatorRef.current;
+    if (!translator || !text.trim()) return null;
+    return translator.translate(text).catch(() => null);
+  }, []);
 
-    // Captions trail the spoken line by a moment; the transcript is append-only,
-    // so the turn's index stays a stable address for the result.
-    translatorRef.current
-      ?.translate(text)
-      .then((translation) => {
-        const current = transcriptRef.current;
-        if (!translation || !current[index]) return;
-        const updated = [...current];
-        updated[index] = { ...current[index], translation };
-        transcriptRef.current = updated;
-        setTurns(updated);
-      })
-      .catch(() => {});
+  const appendTurn = useCallback(
+    (
+      role: Turn["role"],
+      text: string,
+      pending?: Promise<string | null> | null,
+    ) => {
+      if (!text.trim()) return;
+      const turn: Turn = { role, text, at: new Date().toISOString() };
+      const index = transcriptRef.current.length;
+      transcriptRef.current = [...transcriptRef.current, turn];
+      setTurns(transcriptRef.current);
+
+      // Already under way for an agent line whose text arrived early; started
+      // here for anything else. The transcript is append-only, so the turn's
+      // index stays a stable address for the result however late it lands.
+      (pending ?? translate(text))
+        ?.then((translation) => {
+          const current = transcriptRef.current;
+          if (!translation || !current[index]) return;
+          const updated = [...current];
+          updated[index] = { ...current[index], translation };
+          transcriptRef.current = updated;
+          setTurns(updated);
+        })
+        .catch(() => {});
+    },
+    [translate],
+  );
+
+  // Moves the agent's line out of the live caption and into the transcript.
+  // Held back until the voice has finished it, so the transcript and what is
+  // audible stay in the same order as the learner's own turns land between them.
+  const commitAgentTurn = useCallback(() => {
+    if (agentCommittedRef.current) return;
+    agentCommittedRef.current = true;
+
+    const spoken = agentWordsRef.current.map((word) => word.delta).join("");
+    // The deltas occasionally come up a few words short of the final text, so
+    // the authoritative line wins once it has arrived.
+    const text = agentFinalRef.current ?? spoken;
+    // Started when that final text arrived. If it never did, this line is the
+    // deltas instead and needs a translation of its own.
+    const pending = agentFinalRef.current ? agentTranslationRef.current : null;
+
+    agentWordsRef.current = [];
+    agentFinalRef.current = null;
+    agentTranslationRef.current = null;
+    revealedCountRef.current = 0;
+    setCaption(null);
+
+    appendTurn("agent", text, pending);
+  }, [appendTurn]);
+
+  const revealTo = useCallback((playedSamples: number) => {
+    const words = agentWordsRef.current;
+    if (agentCommittedRef.current || words.length === 0) return;
+
+    const playedMs = (playedSamples / SAMPLE_RATE) * 1000;
+    let count = 0;
+    while (count < words.length && words[count].startMs <= playedMs) count++;
+
+    // Only ever forwards, and only when a word has actually been added, so a
+    // caption redraw costs a render no more often than the voice says a word.
+    if (count <= revealedCountRef.current) return;
+    revealedCountRef.current = count;
+    setCaption(
+      words
+        .slice(0, count)
+        .map((word) => word.delta)
+        .join(""),
+    );
   }, []);
 
   const clearPlayback = useCallback(() => {
@@ -167,6 +294,7 @@ export function LiveConversation({
     captureContextRef.current = null;
     playbackContextRef.current = null;
     socketRef.current = null;
+    thinkingTimeRef.current = false;
   }, [clearPlayback]);
 
   const playChunk = useCallback((base64: string) => {
@@ -193,6 +321,23 @@ export function LiveConversation({
     player.port.postMessage({ type: "audio", buffer: pcm }, [pcm]);
   }, []);
 
+  const setThinkingTime = useCallback((on: boolean) => {
+    const socket = socketRef.current;
+    if (thinkingTimeRef.current === on) return;
+    if (!socket || socket.readyState !== WebSocket.OPEN) return;
+    thinkingTimeRef.current = on;
+    socket.send(
+      JSON.stringify({
+        type: "session.update",
+        session: {
+          input: {
+            turn_detection: on ? THINKING_TURN_DETECTION : TURN_DETECTION,
+          },
+        },
+      }),
+    );
+  }, []);
+
   const handleMessage = useCallback(
     (event: MessageEvent) => {
       const message = JSON.parse(event.data);
@@ -210,11 +355,15 @@ export function LiveConversation({
           speechBeganOverAgentRef.current =
             agentPlayingRef.current ||
             performance.now() - agentStoppedAtRef.current < ECHO_TAIL_MS;
+          userSpeakingRef.current = true;
+          nudgesInARowRef.current = 0;
           setUserSpeaking(true);
           // Barge-in: drop whatever the agent still had queued.
           clearPlayback();
           break;
         case "input.speech.stopped":
+          userSpeakingRef.current = false;
+          replyInFlightRef.current = true;
           setUserSpeaking(false);
           break;
         case "transcript.user.delta":
@@ -222,6 +371,9 @@ export function LiveConversation({
           break;
         case "transcript.user":
           setPartial("");
+          setThinkingTime(false);
+          // Whatever the agent had already said belongs above this reply.
+          commitAgentTurn();
           if (
             !echoGuardRef.current &&
             speechBeganOverAgentRef.current &&
@@ -232,8 +384,34 @@ export function LiveConversation({
           }
           appendTurn("user", message.text ?? "");
           break;
+        case "reply.started":
+          agentWordsRef.current = [];
+          agentFinalRef.current = null;
+          agentTranslationRef.current = null;
+          agentCommittedRef.current = false;
+          revealedCountRef.current = 0;
+          setCaption("");
+          // Restarts the worklet's played-sample count, which the caption and
+          // the start-of-reply cushion are both measured from.
+          playerRef.current?.port.postMessage({ type: "reply" });
+          break;
         case "transcript.agent.delta":
-          agentSpeechRef.current = `${agentSpeechRef.current} ${
+          // Normally reply.started opens the reply. If it is ever missed, the
+          // first delta opens it instead, rather than the line being dropped.
+          if (agentCommittedRef.current) {
+            agentWordsRef.current = [];
+            agentFinalRef.current = null;
+            agentTranslationRef.current = null;
+            agentCommittedRef.current = false;
+            revealedCountRef.current = 0;
+          }
+          agentWordsRef.current = [
+            ...agentWordsRef.current,
+            { delta: message.delta ?? "", startMs: message.start_ms ?? 0 },
+          ];
+          // Deltas already carry their own trailing space, so they are joined
+          // as-is rather than padded.
+          agentSpeechRef.current = `${agentSpeechRef.current}${
             message.delta ?? ""
           }`.slice(-600);
           break;
@@ -241,11 +419,32 @@ export function LiveConversation({
           playChunk(message.data);
           break;
         case "transcript.agent":
-          appendTurn("agent", message.text ?? "");
+          // A question they heard in full is what they are about to answer.
+          if (!message.interrupted && /[?？؟]\s*$/.test(message.text ?? "")) {
+            setThinkingTime(true);
+          }
+          // With no reply open there is nothing to reveal it against, so it
+          // goes straight into the transcript rather than being lost.
+          if (agentCommittedRef.current) {
+            appendTurn("agent", message.text ?? "");
+            break;
+          }
+          agentFinalRef.current = message.text ?? "";
+          // Translate now rather than when the line is committed: this text
+          // lands about a second into the reply, and the voice can still have
+          // twenty-odd seconds of it left to say. Waiting for the commit meant
+          // the translation only started once the agent had stopped talking.
+          agentTranslationRef.current = translate(message.text ?? "");
+          // An interrupted reply has no more audio coming, so the trimmed text
+          // is final and there is nothing left to reveal it against.
+          if (message.interrupted) commitAgentTurn();
           break;
         case "reply.done":
           playerRef.current?.port.postMessage({ type: "end" });
           leftoverByteRef.current = null;
+          replyInFlightRef.current = false;
+          quietSinceRef.current = performance.now();
+          if (message.status === "interrupted") commitAgentTurn();
           break;
         case "session.error":
           setError(message.message ?? "The session hit an error.");
@@ -253,7 +452,14 @@ export function LiveConversation({
           break;
       }
     },
-    [appendTurn, clearPlayback, playChunk],
+    [
+      appendTurn,
+      clearPlayback,
+      commitAgentTurn,
+      playChunk,
+      setThinkingTime,
+      translate,
+    ],
   );
 
   const start = useCallback(async () => {
@@ -269,6 +475,14 @@ export function LiveConversation({
       );
     }
 
+    // Also inside the gesture, before any await. Chrome starts an AudioContext
+    // suspended once the click's activation has lapsed, and the token fetch,
+    // microphone prompt and worklet loads below easily outlast it: the agent's
+    // audio then streams in and plays as silence.
+    const playbackContext = new AudioContext({ sampleRate: SAMPLE_RATE });
+    playbackContextRef.current = playbackContext;
+    void playbackContext.resume();
+
     setStatus("connecting");
     setError(null);
 
@@ -280,10 +494,29 @@ export function LiveConversation({
       }
       const { token } = await response.json();
 
+      // Echo cancellation is what lets a learner talk over the agent on a
+      // laptop's own speakers, but on macOS Chrome it is also known to pull the
+      // Web Audio output gain down a few seconds into a session, which is heard
+      // as the agent going quiet and metallic. Automatic gain control adds a
+      // ramp of its own on top, so it is turned off explicitly rather than left
+      // to the browser's default of on.
+      //
+      // `?aec=off` disables cancellation entirely for a side-by-side listen. It
+      // is a diagnostic, not a setting: without it the agent hears itself and
+      // interrupts itself on speakers.
+      const echoCancellation =
+        new URLSearchParams(window.location.search).get("aec") !== "off";
       const stream = await navigator.mediaDevices.getUserMedia({
-        audio: { echoCancellation: true, noiseSuppression: false },
+        audio: {
+          echoCancellation,
+          noiseSuppression: false,
+          autoGainControl: false,
+        },
       });
       streamRef.current = stream;
+      console.info(
+        `[voces] echo cancellation ${echoCancellation ? "on" : "off"}, auto gain control off`,
+      );
 
       // Left at the hardware rate: forcing 24 kHz silently disables echo
       // cancellation in Firefox and Safari, so the worklet resamples instead.
@@ -291,18 +524,59 @@ export function LiveConversation({
       captureContextRef.current = captureContext;
       await captureContext.audioWorklet.addModule("/pcm-processor.js");
 
-      const playbackContext = new AudioContext({ sampleRate: SAMPLE_RATE });
-      playbackContextRef.current = playbackContext;
+      // The agent's audio is 24 kHz PCM16 and is fed to the worklet as raw
+      // samples, so a context that came back at some other rate would play it
+      // at the wrong speed. Chromium honours the request and other browsers may
+      // not, and the device can also force a rate of its own, so it is worth
+      // being able to see what was actually granted.
+      if (playbackContext.sampleRate !== SAMPLE_RATE) {
+        console.warn(
+          `[voces] playback context is ${playbackContext.sampleRate}Hz, expected ${SAMPLE_RATE}Hz`,
+        );
+      }
+      console.info(
+        `[voces] playback ${playbackContext.sampleRate}Hz, capture ${captureContext.sampleRate}Hz`,
+      );
       await playbackContext.audioWorklet.addModule("/playback-processor.js");
+      // Resuming again is harmless if it is already running, and catches a
+      // context that was created suspended regardless.
+      await playbackContext.resume().catch(() => {});
+      if (playbackContext.state !== "running") {
+        console.warn(`[voces] playback context is ${playbackContext.state}`);
+      }
       const player = new AudioWorkletNode(playbackContext, "playback-processor", {
         outputChannelCount: [1],
       });
       // Driven by what is actually audible, not by when the reply was sent,
       // so the indicator doesn't stop while the voice is still playing.
       player.port.onmessage = ({ data }) => {
+        if (data.type === "progress") {
+          revealTo(data.played);
+          return;
+        }
+
+        if (data.type === "stats") {
+          // One line per reply, so a rough session can be read off the console
+          // instead of guessed at: how much silence had to be inserted, and how
+          // much head start the next reply will take because of it.
+          console.info(
+            `[voces] reply ${data.spokenMs}ms spoken, ${data.starvedMs}ms starved, cushion used ${data.cushionMs}ms | peak ${data.peak}, rms ${data.rms}, splices ${data.jumps} (${data.jumpsPerSecond}/s)`,
+          );
+          return;
+        }
+
         const playing = data.type === "playing";
         agentPlayingRef.current = playing;
-        if (!playing) agentStoppedAtRef.current = performance.now();
+        revealTo(data.played);
+        if (!playing) {
+          agentStoppedAtRef.current = performance.now();
+          // Quiet is counted from when the voice stops being audible, not from
+          // when the service finished sending it.
+          quietSinceRef.current = performance.now();
+          // Stopping because the reply ran out, not because it stalled: the
+          // line has now been heard in full and can join the transcript.
+          if (data.drained) commitAgentTurn();
+        }
         setAgentSpeaking(playing);
       };
       player.connect(playbackContext.destination);
@@ -319,16 +593,20 @@ export function LiveConversation({
             type: "session.update",
             session: {
               system_prompt: systemPrompt,
-              output: { voice },
+              // Volume is left unset by default; asking for the top of the
+              // 0-100 range keeps the agent audible against a laptop speaker.
+              output: { voice, volume: 100 },
               input: {
                 language_codes: languageCodes,
                 keyterms: keyterms.length > 0 ? keyterms : undefined,
-                // Silence thresholds and interruption delay are deliberately left
-                // at their defaults. Setting either threshold switches off the
-                // adaptive pacing that gives a learner who pauses more room, and
-                // a shorter interruption delay makes speaker echo far more likely
-                // to cut the agent off.
-                turn_detection: { interrupt_response: true },
+                transcription_prompt: transcriptionPrompt,
+                // max_accuracy was tried for accented speech and added 0.5-1 s to
+                // every reply on top of the fallback above, so the default stays.
+                // Server-side suppression of room noise and of the agent's own
+                // voice bouncing back off the room. Browser noise suppression
+                // stays off, since running both eats real speech.
+                voice_focus: "near-field",
+                turn_detection: TURN_DETECTION,
               },
             },
           }),
@@ -392,11 +670,17 @@ export function LiveConversation({
     systemPrompt,
     targetLanguageCode,
     teardown,
+    transcriptionPrompt,
     voice,
+    commitAgentTurn,
+    revealTo,
   ]);
 
   const save = useCallback(async () => {
     setStatus("ending");
+    // A reply cut off by the learner ending the session is still part of the
+    // conversation, and transcriptRef is read below.
+    commitAgentTurn();
     const { error: saveError } = await saveTranscript(
       sessionId,
       transcriptRef.current,
@@ -411,7 +695,7 @@ export function LiveConversation({
       return;
     }
     router.push(`/conversation/${sessionId}/analysis`);
-  }, [router, sessionId]);
+  }, [commitAgentTurn, router, sessionId]);
 
   useEffect(() => {
     saveRef.current = save;
@@ -430,6 +714,33 @@ export function LiveConversation({
     const timer = setInterval(() => setElapsed((value) => value + 1), 1000);
     return () => clearInterval(timer);
   }, [status]);
+
+  useEffect(() => {
+    if (status !== "live") return;
+    const check = setInterval(() => {
+      const socket = socketRef.current;
+      if (
+        !socket ||
+        socket.readyState !== WebSocket.OPEN ||
+        userSpeakingRef.current ||
+        agentPlayingRef.current ||
+        replyInFlightRef.current ||
+        nudgesInARowRef.current >= MAX_NUDGES_IN_A_ROW ||
+        performance.now() - quietSinceRef.current < NUDGE_AFTER_MS
+      ) {
+        return;
+      }
+      nudgesInARowRef.current += 1;
+      replyInFlightRef.current = true;
+      socket.send(
+        JSON.stringify({
+          type: "reply.create",
+          instructions: `They've gone quiet and may be stuck. Don't mention the silence or their ${languageLabel}. Ask one simple, friendly question about their own life that they can answer in one or two words.`,
+        }),
+      );
+    }, 1000);
+    return () => clearInterval(check);
+  }, [languageLabel, status]);
 
   // An unsent session.end leaves a billable resume window open.
   useEffect(() => {
@@ -540,7 +851,7 @@ export function LiveConversation({
                 freely.
               </p>
             )}
-            {turns.length === 0 && !partial && (
+            {turns.length === 0 && !partial && !caption && (
               <p className="text-[15px] text-muted" dir="ltr">
                 Connected — your partner is about to speak.
               </p>
@@ -577,6 +888,15 @@ export function LiveConversation({
                   )}
                 </div>
               ),
+            )}
+
+            {caption && (
+              <div className="flex flex-col gap-2">
+                <span className="text-[9px] font-bold tracking-[0.18em] text-accent">
+                  VOCES
+                </span>
+                <p className="text-[17px] leading-relaxed">{caption}</p>
+              </div>
             )}
 
             {partial && (
