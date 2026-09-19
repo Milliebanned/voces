@@ -1,8 +1,15 @@
 "use client";
 
+import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useCallback, useEffect, useRef, useState } from "react";
-import { Wordmark } from "@/components/wordmark";
+import {
+  type ReactNode,
+  useCallback,
+  useEffect,
+  useRef,
+  useState,
+} from "react";
+import { Flag } from "@/components/flag";
 import { isEchoOf } from "@/lib/echo";
 import { prepareTranslator, type TranslatorStatus } from "@/lib/translator";
 import { saveTranscript, type Turn } from "./actions";
@@ -141,6 +148,13 @@ export function LiveConversation({
   const [userSpeaking, setUserSpeaking] = useState(false);
   const [elapsed, setElapsed] = useState(0);
   const [echoDetected, setEchoDetected] = useState(false);
+  const [micMuted, setMicMuted] = useState(false);
+  const [speakerMuted, setSpeakerMuted] = useState(false);
+  const micMutedRef = useRef(false);
+  const speakerMutedRef = useRef(false);
+  // Sits between the player and the speakers, so muting the agent's voice
+  // leaves the worklet running and the captions still advancing.
+  const outputGainRef = useRef<GainNode | null>(null);
 
   // Speaker echo: at just 2% loudness, the agent's own voice picked up by the
   // mic is enough for it to interrupt itself and then answer its own words.
@@ -283,6 +297,7 @@ export function LiveConversation({
     playerRef.current?.port.close();
     playerRef.current?.disconnect();
     playerRef.current = null;
+    outputGainRef.current = null;
     workletRef.current?.port.close();
     workletRef.current?.disconnect();
     streamRef.current?.getTracks().forEach((track) => track.stop());
@@ -579,7 +594,10 @@ export function LiveConversation({
         }
         setAgentSpeaking(playing);
       };
-      player.connect(playbackContext.destination);
+      const outputGain = playbackContext.createGain();
+      outputGain.gain.value = speakerMutedRef.current ? 0 : 1;
+      player.connect(outputGain).connect(playbackContext.destination);
+      outputGainRef.current = outputGain;
       playerRef.current = player;
 
       const socket = new WebSocket(
@@ -624,9 +642,10 @@ export function LiveConversation({
         worklet.port.onmessage = (event: MessageEvent<ArrayBuffer>) => {
           if (socket.readyState !== WebSocket.OPEN) return;
           const muted =
-            echoGuardRef.current &&
-            (agentPlayingRef.current ||
-              performance.now() - agentStoppedAtRef.current < ECHO_TAIL_MS);
+            micMutedRef.current ||
+            (echoGuardRef.current &&
+              (agentPlayingRef.current ||
+                performance.now() - agentStoppedAtRef.current < ECHO_TAIL_MS));
           // Silence rather than nothing, so the stream keeps its timing.
           const pcm = muted
             ? new Uint8Array(event.data.byteLength)
@@ -762,216 +781,103 @@ export function LiveConversation({
   // Keeps the newest line in view as the conversation grows, unless the
   // learner has scrolled up to reread something: then it waits until they
   // come back near the bottom rather than pulling them away mid-read.
+  const scrollRef = useRef<HTMLDivElement | null>(null);
   const followRef = useRef(true);
+  const lastScrollTopRef = useRef(0);
 
-  useEffect(() => {
-    let lastY = window.scrollY;
-    const onScroll = () => {
-      const fromBottom =
-        document.documentElement.scrollHeight - window.innerHeight - window.scrollY;
-      if (fromBottom < 160) {
-        followRef.current = true;
-      } else if (window.scrollY < lastY - 2) {
-        // Only an upward scroll opts out. A smooth scroll towards a line that
-        // just grew the page also reads as "far from the bottom" part-way.
-        followRef.current = false;
-      }
-      lastY = window.scrollY;
-    };
-    window.addEventListener("scroll", onScroll, { passive: true });
-    return () => window.removeEventListener("scroll", onScroll);
+  const onTranscriptScroll = useCallback(() => {
+    const element = scrollRef.current;
+    if (!element) return;
+    const fromBottom =
+      element.scrollHeight - element.clientHeight - element.scrollTop;
+    if (fromBottom < 120) {
+      followRef.current = true;
+    } else if (element.scrollTop < lastScrollTopRef.current - 2) {
+      // Only an upward scroll opts out. A smooth scroll towards a line that
+      // just grew the transcript also reads as "far from the bottom" part-way.
+      followRef.current = false;
+    }
+    lastScrollTopRef.current = element.scrollTop;
   }, []);
 
   useEffect(() => {
-    if (!followRef.current) return;
-    window.scrollTo({
-      top: document.documentElement.scrollHeight,
-      behavior: "smooth",
-    });
+    const element = scrollRef.current;
+    if (!element || !followRef.current) return;
+    element.scrollTo({ top: element.scrollHeight, behavior: "smooth" });
   }, [turns, caption, partial, showTranslations, echoDetected]);
 
+  const toggleMic = useCallback(() => {
+    setMicMuted((muted) => {
+      micMutedRef.current = !muted;
+      return !muted;
+    });
+  }, []);
+
+  const toggleSpeaker = useCallback(() => {
+    setSpeakerMuted((muted) => {
+      speakerMutedRef.current = !muted;
+      const gain = outputGainRef.current;
+      if (gain) gain.gain.value = muted ? 1 : 0;
+      return !muted;
+    });
+  }, []);
+
+  const active = status === "live" || status === "ending";
+
+  const statusText =
+    status === "ending"
+      ? "Wrapping up…"
+      : micMuted
+        ? "Your mic is muted"
+        : agentSpeaking
+          ? "Speaking…"
+          : userSpeaking
+            ? "Listening…"
+            : "Your turn";
+
   return (
-    <main className="flex flex-1 flex-col">
-      <header className="mx-auto flex w-full max-w-2xl items-center justify-between px-6 py-6">
-        <Wordmark />
-        <div className="flex items-center gap-2">
-          <span
-            className={`size-1.5 rounded-full ${
-              status === "live" ? "bg-accent" : "bg-muted"
-            }`}
-          />
-          <span className="text-[13px] font-semibold">{languageLabel}</span>
+    <main className="fixed inset-0 flex flex-col overflow-hidden bg-[#14110A] text-white">
+      <DuskScene />
+
+      <header className="relative z-10 flex h-[66px] shrink-0 items-center justify-between gap-3 px-5 md:h-[76px] md:px-10">
+        <div className="flex items-center gap-4">
+          {active && (
+            <button
+              type="button"
+              onClick={end}
+              disabled={status === "ending"}
+              aria-label="End conversation"
+              className="grid size-9 place-items-center rounded-full bg-[#120E0A]/35 backdrop-blur-sm transition-colors hover:bg-[#120E0A]/55 md:hidden"
+            >
+              <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="#FFFFFF" strokeWidth="1.8" strokeLinecap="round" aria-hidden>
+                <path d="M2.4 2.4 L11.6 11.6" />
+                <path d="M11.6 2.4 L2.4 11.6" />
+              </svg>
+            </button>
+          )}
+          <Link href="/dashboard" aria-label="VOCES dashboard" className="flex items-center gap-2">
+            <svg width="22" height="22" viewBox="0 0 48 48" fill="#FFFFFF" aria-hidden>
+              <rect x="0" y="17" width="6" height="14" rx="3" />
+              <rect x="10.5" y="9" width="6" height="30" rx="3" />
+              <rect x="21" y="0" width="6" height="48" rx="3" />
+              <rect x="31.5" y="9" width="6" height="30" rx="3" />
+              <rect x="42" y="17.5" width="6" height="13" rx="3" />
+            </svg>
+            <span className="text-[15px] font-bold tracking-[0.14em] md:text-[17px]">
+              VOCES
+            </span>
+          </Link>
           {status === "live" && (
-            <span className="ml-2 text-xs font-medium text-muted">
+            <span className="hidden text-[13px] font-medium text-white/70 tabular-nums sm:inline">
               {minutes}:{seconds}
             </span>
           )}
         </div>
-      </header>
 
-      <div className="mx-auto flex w-full max-w-2xl flex-1 flex-col px-6 pb-40">
-        {status === "idle" && (
-          <div className="flex flex-1 flex-col items-center justify-center text-center">
-            <h1 className="max-w-[420px] text-[28px] leading-tight font-bold tracking-[-0.02em]">
-              Ready when you are
-            </h1>
-            <p className="mt-3 max-w-[420px] text-[15px] leading-relaxed text-muted">
-              Speak naturally. If a word escapes you, say it in your own
-              language and keep going — you&apos;ll be understood.
-            </p>
-            <button
-              onClick={start}
-              className="mt-8 rounded-full bg-accent px-8 py-4 text-base font-semibold text-white transition-colors hover:bg-accent-hover"
-            >
-              Start the conversation
-            </button>
-          </div>
-        )}
-
-        {status === "connecting" && (
-          <p className="flex flex-1 items-center justify-center text-[15px] text-muted">
-            Connecting…
-          </p>
-        )}
-
-        {status === "save-failed" && (
-          <div className="flex flex-1 flex-col items-center justify-center text-center">
-            <h1 className="text-[24px] leading-tight font-bold tracking-[-0.02em]">
-              Your conversation didn&apos;t save
-            </h1>
-            <p className="mt-3 max-w-[420px] text-[14px] leading-relaxed text-muted">
-              It&apos;s still here — don&apos;t close this tab. Try again, and
-              if it keeps failing, send this on:
-            </p>
-            <p className="mt-4 max-w-[420px] rounded-2xl bg-accent-soft px-5 py-4 font-mono text-[12px] leading-relaxed text-accent">
-              {error}
-            </p>
-            <button
-              onClick={save}
-              className="mt-6 rounded-full bg-accent px-7 py-4 text-base font-semibold text-white transition-colors hover:bg-accent-hover"
-            >
-              Try saving again
-            </button>
-          </div>
-        )}
-
-        {status === "error" && (
-          <div className="flex flex-1 flex-col items-center justify-center text-center">
-            <p className="max-w-[420px] rounded-2xl bg-accent-soft px-5 py-4 text-[14px] leading-relaxed text-accent">
-              {error}
-            </p>
-            <button
-              onClick={start}
-              className="mt-6 rounded-full border border-border px-6 py-3 text-[15px] font-semibold transition-colors hover:bg-surface"
-            >
-              Try again
-            </button>
-          </div>
-        )}
-
-        {(status === "live" || status === "ending") && (
-          <div className="flex flex-col gap-6 pt-4" dir={direction}>
-            {echoDetected && (
-              <p
-                dir="ltr"
-                className="rounded-2xl border border-border bg-surface px-4 py-3 text-[13px] leading-relaxed text-muted"
-              >
-                Your mic was picking up the voice from your speakers, so
-                it&apos;s now muted while your partner talks. Wait for them to
-                finish before you reply, or use headphones to talk over them
-                freely.
-              </p>
-            )}
-            {turns.length === 0 && !partial && !caption && (
-              <p className="text-[15px] text-muted" dir="ltr">
-                Connected — your partner is about to speak.
-              </p>
-            )}
-
-            {turns.map((turn, index) =>
-              turn.role === "agent" ? (
-                <div key={index} className="flex flex-col gap-2">
-                  <span className="text-[9px] font-bold tracking-[0.18em] text-accent">
-                    VOCES
-                  </span>
-                  <p className="text-[17px] leading-relaxed">{turn.text}</p>
-                  {showTranslations && turn.translation && (
-                    <p
-                      dir={translationDirection}
-                      className="text-[13px] leading-relaxed text-muted/70"
-                    >
-                      {turn.translation}
-                    </p>
-                  )}
-                </div>
-              ) : (
-                <div key={index} className="flex flex-col items-end gap-1.5">
-                  <p className="max-w-[80%] rounded-2xl border border-border bg-surface px-4 py-3 text-[17px] leading-relaxed text-muted">
-                    {turn.text}
-                  </p>
-                  {showTranslations && turn.translation && (
-                    <p
-                      dir={translationDirection}
-                      className="max-w-[80%] px-1 text-[13px] leading-relaxed text-muted/70"
-                    >
-                      {turn.translation}
-                    </p>
-                  )}
-                </div>
-              ),
-            )}
-
-            {caption && (
-              <div className="flex flex-col gap-2">
-                <span className="text-[9px] font-bold tracking-[0.18em] text-accent">
-                  VOCES
-                </span>
-                <p className="text-[17px] leading-relaxed">{caption}</p>
-              </div>
-            )}
-
-            {partial && (
-              <div className="flex justify-end">
-                <p className="max-w-[80%] rounded-2xl border border-dashed border-border px-4 py-3 text-[17px] leading-relaxed text-muted/70">
-                  {partial}
-                </p>
-              </div>
-            )}
-          </div>
-        )}
-      </div>
-
-      {(status === "live" || status === "ending") && (
-        <div className="fixed inset-x-0 bottom-0 border-t border-border bg-background/90 backdrop-blur">
-          <div className="mx-auto flex w-full max-w-2xl items-center justify-between px-6 py-6">
-            <div className="flex items-center gap-2.5">
-              <div className="flex h-4 items-end gap-[3px]">
-                {[6, 13, 16, 10, 6].map((height, i) => (
-                  <span
-                    key={i}
-                    className="w-[3px] rounded-full bg-accent transition-transform duration-200"
-                    style={{
-                      height,
-                      transform:
-                        userSpeaking || agentSpeaking
-                          ? "scaleY(1)"
-                          : "scaleY(0.4)",
-                    }}
-                  />
-                ))}
-              </div>
-              <span className="text-[13px] font-medium text-muted">
-                {agentSpeaking
-                  ? "Speaking…"
-                  : userSpeaking
-                    ? "Listening…"
-                    : "Your turn"}
-              </span>
-            </div>
-
-            <div className="flex items-center gap-3">
-            {translatorStatus === "unsupported" ? (
-              <span className="hidden text-[12px] text-muted sm:inline">
+        <div className="flex items-center gap-2.5 md:gap-3.5">
+          {active &&
+            (translatorStatus === "unsupported" ? (
+              <span className="hidden text-[12px] text-white/70 lg:inline">
                 Translations need Chrome
               </span>
             ) : (
@@ -979,30 +885,489 @@ export function LiveConversation({
                 type="button"
                 onClick={toggleTranslations}
                 aria-pressed={showTranslations}
-                className={`rounded-full px-4 py-3 text-[13px] font-medium transition-colors ${
+                aria-label={showTranslations ? "Hide translations" : "Show translations"}
+                className={`grid h-10 min-w-10 place-items-center rounded-full text-[13px] font-semibold backdrop-blur-sm transition-colors sm:px-4 md:h-11 ${
                   showTranslations
-                    ? "bg-accent-soft text-accent"
-                    : "text-muted hover:text-foreground"
+                    ? "bg-white text-[#14110A]"
+                    : "bg-[#1C1610]/40 hover:bg-[#1C1610]/60"
                 }`}
               >
-                {translatorStatus === "loading" && showTranslations
-                  ? "Preparing translation…"
-                  : showTranslations
-                    ? "Translation on"
-                    : "Translation off"}
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round" aria-hidden className="sm:hidden">
+                  <path d="M4 5h11" />
+                  <path d="M9 3v2" />
+                  <path d="M12.5 5c0 5-4 9-8.5 10" />
+                  <path d="M6.5 9c1.6 3 4.2 5.3 7 6.2" />
+                  <path d="M13 21l4.2-9.6L21.4 21" />
+                  <path d="M14.7 17.6h5" />
+                </svg>
+                <span aria-hidden className="hidden sm:inline">
+                  {translatorStatus === "loading" && showTranslations
+                    ? "Preparing…"
+                    : "Translation"}
+                </span>
               </button>
-            )}
+            ))}
+
+          {/* Changing language mid-conversation would drop the session, so the
+              pill only links to settings before one has started. */}
+          {active ? (
+            <span className="flex h-10 items-center gap-2.5 rounded-full bg-[#1C1610]/40 pr-4 pl-2 backdrop-blur-sm md:h-11">
+              <Flag code={targetLanguageCode} size={28} />
+              <span className="text-[14px] font-semibold md:text-[15px]">{languageLabel}</span>
+            </span>
+          ) : (
+            <Link
+              href="/settings"
+              className="flex h-10 items-center gap-2.5 rounded-full bg-[#1C1610]/40 pr-4 pl-2 backdrop-blur-sm transition-colors hover:bg-[#1C1610]/60 md:h-11"
+            >
+              <Flag code={targetLanguageCode} size={28} />
+              <span className="text-[14px] font-semibold md:text-[15px]">{languageLabel}</span>
+              <svg width="7" height="12" viewBox="0 0 7 12" fill="none" stroke="#FFFFFF" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+                <path d="M1 1 L6 6 L1 11" />
+              </svg>
+            </Link>
+          )}
+
+          {active && (
             <button
+              type="button"
               onClick={end}
               disabled={status === "ending"}
-              className="rounded-full border border-border px-6 py-3 text-[15px] font-semibold transition-colors hover:bg-surface disabled:opacity-60"
+              aria-label="End conversation"
+              className="hidden size-11 place-items-center rounded-full bg-[#1C1610]/40 backdrop-blur-sm transition-colors hover:bg-[#1C1610]/60 md:grid"
             >
-              {status === "ending" ? "Wrapping up…" : "End conversation"}
+              <svg width="16" height="16" viewBox="0 0 14 14" fill="none" stroke="#FFFFFF" strokeWidth="1.8" strokeLinecap="round" aria-hidden>
+                <path d="M2.4 2.4 L11.6 11.6" />
+                <path d="M11.6 2.4 L2.4 11.6" />
+              </svg>
             </button>
+          )}
+        </div>
+      </header>
+
+      {status === "idle" && (
+        <CenteredPanel>
+          <h1 className="text-[32px] leading-tight font-bold tracking-[-0.02em] md:text-[40px]">
+            Ready when you are
+          </h1>
+          <p className="mt-3 max-w-[420px] text-[16px] leading-relaxed text-white/80">
+            Speak naturally. If a word escapes you, say it in your own language
+            and keep going — you&apos;ll be understood.
+          </p>
+          <button
+            onClick={start}
+            className="mt-8 flex h-[60px] items-center gap-3 rounded-full bg-[#DB611C] pr-8 pl-6 text-lg font-semibold shadow-[0_16px_40px_rgba(238,112,33,0.38)] transition-colors hover:bg-[#C74D17]"
+          >
+            <MicIcon size={24} />
+            Start the conversation
+          </button>
+        </CenteredPanel>
+      )}
+
+      {status === "connecting" && (
+        <CenteredPanel>
+          <p className="text-[17px] text-white/85">Connecting…</p>
+        </CenteredPanel>
+      )}
+
+      {status === "save-failed" && (
+        <CenteredPanel>
+          <h1 className="text-[26px] leading-tight font-bold tracking-[-0.02em]">
+            Your conversation didn&apos;t save
+          </h1>
+          <p className="mt-3 max-w-[420px] text-[15px] leading-relaxed text-white/80">
+            It&apos;s still here — don&apos;t close this tab. Try again, and if
+            it keeps failing, send this on:
+          </p>
+          <p className="mt-4 max-w-[420px] rounded-2xl bg-black/40 px-5 py-4 font-mono text-[12px] leading-relaxed text-[#F7B98E]">
+            {error}
+          </p>
+          <button
+            onClick={save}
+            className="mt-6 h-14 rounded-full bg-[#DB611C] px-7 text-base font-semibold transition-colors hover:bg-[#C74D17]"
+          >
+            Try saving again
+          </button>
+        </CenteredPanel>
+      )}
+
+      {status === "error" && (
+        <CenteredPanel>
+          <p className="max-w-[420px] rounded-2xl bg-black/40 px-5 py-4 text-[15px] leading-relaxed text-[#F7B98E]">
+            {error}
+          </p>
+          <button
+            onClick={start}
+            className="mt-6 h-12 rounded-full bg-white/15 px-6 text-[15px] font-semibold backdrop-blur-sm transition-colors hover:bg-white/25"
+          >
+            Try again
+          </button>
+        </CenteredPanel>
+      )}
+
+      {active && (
+        <>
+          <div
+            ref={scrollRef}
+            onScroll={onTranscriptScroll}
+            className="relative z-10 min-h-0 flex-1 overflow-y-auto [mask-image:linear-gradient(to_bottom,transparent,black_40px)]"
+          >
+            <div className="mx-auto w-full max-w-[1280px] px-5 md:px-20">
+              <div className="flex max-w-[620px] flex-col gap-[18px] pt-10 pb-6 md:gap-[22px] md:pt-16" dir={direction}>
+                {echoDetected && (
+                  <p dir="ltr" className="rounded-2xl bg-black/45 px-4 py-3 text-[13px] leading-relaxed text-white/85 backdrop-blur-sm">
+                    Your mic was picking up the voice from your speakers, so
+                    it&apos;s now muted while your partner talks. Wait for them
+                    to finish before you reply, or use headphones to talk over
+                    them freely.
+                  </p>
+                )}
+                {turns.length === 0 && !partial && !caption && (
+                  <p dir="ltr" className="text-[16px] text-white/85">
+                    Connected — your partner is about to speak.
+                  </p>
+                )}
+
+                {turns.map((turn, index) =>
+                  turn.role === "agent" ? (
+                    <AgentBubble
+                      key={index}
+                      text={turn.text}
+                      translation={showTranslations ? turn.translation : undefined}
+                      translationDirection={translationDirection}
+                    />
+                  ) : (
+                    <UserBubble
+                      key={index}
+                      text={turn.text}
+                      translation={showTranslations ? turn.translation : undefined}
+                      translationDirection={translationDirection}
+                    />
+                  ),
+                )}
+
+                {caption && <AgentBubble text={caption} />}
+                {partial && <UserBubble text={partial} pending />}
+              </div>
             </div>
           </div>
-        </div>
+
+          <div className="relative z-10 flex shrink-0 flex-col items-center gap-4 pt-4 pb-7 md:gap-5 md:pb-10">
+            <div className="flex items-center gap-14 md:gap-[60px]">
+              <button
+                type="button"
+                onClick={toggleSpeaker}
+                aria-pressed={speakerMuted}
+                aria-label={speakerMuted ? "Unmute your partner" : "Mute your partner"}
+                className={`grid size-14 place-items-center rounded-full backdrop-blur-sm transition-colors md:size-[60px] ${
+                  speakerMuted ? "bg-white text-[#14110A]" : "bg-white/13 hover:bg-white/20"
+                }`}
+              >
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+                  <path d="M4 9.5 h3.4 L12.4 5.4 v13.2 L7.4 14.5 H4 Z" fill="currentColor" />
+                  {speakerMuted ? (
+                    <>
+                      <path d="M16.2 9.4 L21 14.2" />
+                      <path d="M21 9.4 L16.2 14.2" />
+                    </>
+                  ) : (
+                    <>
+                      <path d="M16.4 9.4 a4 4 0 0 1 0 5.2" />
+                      <path d="M19.2 6.9 a7.6 7.6 0 0 1 0 10.2" />
+                    </>
+                  )}
+                </svg>
+              </button>
+
+              <button
+                type="button"
+                onClick={toggleMic}
+                aria-pressed={micMuted}
+                aria-label={micMuted ? "Unmute your microphone" : "Mute your microphone"}
+                className={`relative grid size-[88px] place-items-center rounded-full transition-colors md:size-24 ${
+                  micMuted
+                    ? "bg-white/20 backdrop-blur-sm"
+                    : "bg-[#EE7021] shadow-[0_16px_40px_rgba(238,112,33,0.38)] hover:bg-[#DB611C]"
+                }`}
+              >
+                {!micMuted && userSpeaking && (
+                  <span className="absolute inset-0 animate-ping rounded-full bg-[#EE7021]/40 motion-reduce:animate-none" />
+                )}
+                <MicIcon size={36} muted={micMuted} />
+              </button>
+
+              <button
+                type="button"
+                onClick={end}
+                disabled={status === "ending"}
+                aria-label="End conversation"
+                className="grid size-14 place-items-center rounded-full bg-white/13 backdrop-blur-sm transition-colors hover:bg-white/20 disabled:opacity-60 md:size-[60px]"
+              >
+                <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="#FFFFFF" strokeWidth="1.8" strokeLinecap="round" aria-hidden>
+                  <circle cx="12" cy="12" r="8.6" />
+                  <path d="M8.8 8.8 L15.2 15.2" />
+                  <path d="M15.2 8.8 L8.8 15.2" />
+                </svg>
+              </button>
+            </div>
+
+            <p aria-live="polite" className="text-[15px] font-medium tracking-[0.01em] text-white/90 md:text-base">
+              {statusText}
+            </p>
+          </div>
+        </>
       )}
     </main>
+  );
+}
+
+function CenteredPanel({ children }: { children: ReactNode }) {
+  return (
+    <div className="relative z-10 flex flex-1 flex-col items-center justify-center px-6 pb-16 text-center">
+      {children}
+    </div>
+  );
+}
+
+function MicIcon({ size, muted = false }: { size: number; muted?: boolean }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="#FFFFFF" strokeWidth="2" strokeLinecap="round" aria-hidden>
+      <rect x="9" y="2.4" width="6" height="12" rx="3" fill="#FFFFFF" stroke="none" />
+      <path d="M5.5 11.2v1a6.5 6.5 0 0 0 13 0v-1" />
+      <path d="M12 19.4V22" />
+      {muted && <path d="M3.5 3.5 L20.5 20.5" strokeWidth="2.2" />}
+    </svg>
+  );
+}
+
+function AgentBubble({
+  text,
+  translation,
+  translationDirection,
+}: {
+  text: string;
+  translation?: string;
+  translationDirection?: "ltr" | "rtl";
+}) {
+  return (
+    <div className="max-w-[85%] self-start rounded-[20px_20px_20px_5px] bg-[#F7F1EC] px-[17px] py-[13px] shadow-[0_12px_28px_rgba(0,0,0,0.24)] md:max-w-[470px] md:rounded-[24px_24px_24px_6px] md:px-[22px] md:py-4">
+      <p className="text-[15px] leading-5 font-semibold text-[#17181A] md:text-[17px] md:leading-6">
+        {text}
+      </p>
+      {translation && (
+        <p dir={translationDirection} className="mt-1 text-[13px] leading-[19px] text-[#6F757B] md:mt-[5px] md:text-[15px] md:leading-[22px]">
+          {translation}
+        </p>
+      )}
+    </div>
+  );
+}
+
+function UserBubble({
+  text,
+  translation,
+  translationDirection,
+  pending = false,
+}: {
+  text: string;
+  translation?: string;
+  translationDirection?: "ltr" | "rtl";
+  pending?: boolean;
+}) {
+  return (
+    <div
+      className={`max-w-[85%] self-end rounded-[20px_20px_5px_20px] px-[17px] py-[13px] shadow-[0_12px_28px_rgba(0,0,0,0.26)] md:max-w-[400px] md:rounded-[24px_24px_6px_24px] md:px-[22px] md:py-4 ${
+        // Words still being recognised read as provisional until the turn ends.
+        pending ? "border-2 border-dashed border-white/40 bg-[#DB611C]/60" : "bg-[#DB611C]"
+      }`}
+    >
+      <p className="text-[15px] leading-5 font-semibold text-white md:text-[17px] md:leading-6">
+        {text}
+      </p>
+      {translation && (
+        <p dir={translationDirection} className="mt-1.5 text-[13px] leading-[19px] text-white/85 md:text-[15px] md:leading-[22px]">
+          {translation}
+        </p>
+      )}
+    </div>
+  );
+}
+
+// The dusk city from the design, drawn behind everything. The desktop scene
+// keeps its towers right of centre so the transcript column stays clear; the
+// narrow one moves the main tower left.
+function DuskScene() {
+  return (
+    <div aria-hidden className="pointer-events-none absolute inset-0">
+      <svg viewBox="0 0 1280 800" preserveAspectRatio="xMidYMax slice" fill="none" className="absolute inset-0 hidden size-full md:block">
+        <defs>
+          <linearGradient id="cdSky" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0" stopColor="#454449" />
+            <stop offset="0.12" stopColor="#57514F" />
+            <stop offset="0.26" stopColor="#72605A" />
+            <stop offset="0.40" stopColor="#99745E" />
+            <stop offset="0.54" stopColor="#B8845F" />
+            <stop offset="0.66" stopColor="#C28C63" />
+            <stop offset="0.78" stopColor="#A97350" />
+            <stop offset="1" stopColor="#6B4429" />
+          </linearGradient>
+          <linearGradient id="cdFloor" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0" stopColor="#3A2A14" stopOpacity="0" />
+            <stop offset="0.5" stopColor="#241B0E" stopOpacity="0.85" />
+            <stop offset="1" stopColor="#13110A" stopOpacity="1" />
+          </linearGradient>
+          <linearGradient id="cdReadScrim" x1="0" y1="0" x2="1" y2="0">
+            <stop offset="0" stopColor="#120F0B" stopOpacity="0.68" />
+            <stop offset="0.42" stopColor="#120F0B" stopOpacity="0.30" />
+            <stop offset="0.72" stopColor="#120F0B" stopOpacity="0" />
+          </linearGradient>
+          <linearGradient id="cdTopScrim" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0" stopColor="#1B1A20" stopOpacity="0.58" />
+            <stop offset="1" stopColor="#1B1A20" stopOpacity="0" />
+          </linearGradient>
+        </defs>
+        <rect width="1280" height="620" fill="url(#cdSky)" />
+        <g fill="#C79A7C" fillOpacity="0.28">
+          <ellipse cx="380" cy="150" rx="440" ry="18" />
+          <ellipse cx="980" cy="214" rx="380" ry="15" />
+          <ellipse cx="300" cy="286" rx="400" ry="16" />
+          <ellipse cx="1040" cy="330" rx="330" ry="13" />
+        </g>
+        <g fill="#6E5A56" fillOpacity="0.32">
+          <ellipse cx="820" cy="122" rx="420" ry="15" />
+          <ellipse cx="260" cy="206" rx="360" ry="12" />
+          <ellipse cx="900" cy="270" rx="380" ry="13" />
+        </g>
+        <path d="M0 402 C 220 386 400 396 620 390 C 840 384 1060 396 1280 382 L 1280 450 L 0 450 Z" fill="#7A5436" fillOpacity="0.5" />
+        <g fill="#8A6636">
+          <path d="M956 196 L962 150 L968 196 Z" />
+          <path d="M924 250 C 924 222 936 206 962 196 C 988 206 1000 222 1000 250 Z" />
+          <rect x="920" y="244" width="84" height="286" />
+          <path d="M906 300 L912 266 L918 300 Z" />
+          <path d="M1006 300 L1012 266 L1018 300 Z" />
+          <rect x="896" y="296" width="30" height="234" />
+          <rect x="998" y="296" width="30" height="234" />
+        </g>
+        <path d="M920 244 L962 220 L1004 244 Z" fill="#5E4224" />
+        <g fill="#E0A85C">
+          <rect x="936" y="286" width="16" height="34" rx="8" />
+          <rect x="972" y="286" width="16" height="34" rx="8" />
+          <rect x="938" y="366" width="14" height="30" rx="7" />
+          <rect x="972" y="366" width="14" height="30" rx="7" />
+          <rect x="902" y="378" width="12" height="26" rx="6" />
+          <rect x="1006" y="378" width="12" height="26" rx="6" />
+        </g>
+        <g fill="#7E5B2F">
+          <path d="M1168 332 L1174 296 L1180 332 Z" />
+          <path d="M1148 372 C 1148 352 1156 340 1174 332 C 1192 340 1200 352 1200 372 Z" />
+          <rect x="1146" y="368" width="56" height="176" />
+        </g>
+        <g fill="#D9A24E">
+          <rect x="1158" y="404" width="13" height="28" rx="6.5" />
+          <rect x="1178" y="404" width="13" height="28" rx="6.5" />
+        </g>
+        <g fill="#7A4A26">
+          <path d="M0 486 L120 452 L246 486 L246 570 L0 570 Z" />
+          <path d="M300 500 L420 466 L544 500 L544 578 L300 578 Z" />
+          <path d="M580 512 L700 480 L820 512 L820 584 L580 584 Z" />
+          <path d="M1036 508 L1120 482 L1206 508 L1206 580 L1036 580 Z" />
+        </g>
+        <rect y="540" width="1280" height="70" fill="#5C3519" />
+        <g fill="#C98F45">
+          {[[70, 512], [150, 512], [368, 526], [452, 526], [652, 540], [736, 540], [1090, 536]].map(([x, y]) => (
+            <rect key={x} x={x} y={y} width="11" height="20" rx="5" />
+          ))}
+        </g>
+        <path d="M0 586 C 96 548 190 580 280 554 C 372 578 448 600 528 584 C 616 566 706 592 796 572 C 890 552 986 584 1080 566 C 1160 550 1224 578 1280 566 L 1280 760 L 0 760 Z" fill="#313318" />
+        <path d="M0 646 C 140 616 272 640 400 624 C 536 606 656 634 792 622 C 928 610 1060 638 1280 616 L 1280 820 L 0 820 Z" fill="#23240F" />
+        <rect y="470" width="1280" height="330" fill="url(#cdFloor)" />
+        <rect width="1280" height="800" fill="url(#cdReadScrim)" />
+        <rect width="1280" height="200" fill="url(#cdTopScrim)" />
+      </svg>
+
+      <svg viewBox="0 0 390 844" preserveAspectRatio="xMidYMax slice" fill="none" className="absolute inset-0 size-full md:hidden">
+        <defs>
+          <linearGradient id="cmSky" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0" stopColor="#454449" />
+            <stop offset="0.10" stopColor="#55504F" />
+            <stop offset="0.22" stopColor="#6E5D57" />
+            <stop offset="0.34" stopColor="#93705C" />
+            <stop offset="0.46" stopColor="#B4805E" />
+            <stop offset="0.57" stopColor="#C28C63" />
+            <stop offset="0.68" stopColor="#B07A54" />
+            <stop offset="0.82" stopColor="#7E5232" />
+            <stop offset="1" stopColor="#4A2F19" />
+          </linearGradient>
+          <linearGradient id="cmFloor" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0" stopColor="#3A2A14" stopOpacity="0" />
+            <stop offset="0.45" stopColor="#241B0E" stopOpacity="0.85" />
+            <stop offset="1" stopColor="#13110A" stopOpacity="1" />
+          </linearGradient>
+          <linearGradient id="cmTopScrim" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0" stopColor="#1B1A20" stopOpacity="0.55" />
+            <stop offset="1" stopColor="#1B1A20" stopOpacity="0" />
+          </linearGradient>
+        </defs>
+        <rect width="390" height="620" fill="url(#cmSky)" />
+        <g fill="#C79A7C" fillOpacity="0.30">
+          <ellipse cx="120" cy="150" rx="150" ry="16" />
+          <ellipse cx="300" cy="206" rx="120" ry="13" />
+          <ellipse cx="80" cy="258" rx="130" ry="14" />
+          <ellipse cx="320" cy="300" rx="110" ry="12" />
+        </g>
+        <g fill="#6E5A56" fillOpacity="0.34">
+          <ellipse cx="250" cy="120" rx="140" ry="14" />
+          <ellipse cx="90" cy="196" rx="110" ry="11" />
+          <ellipse cx="270" cy="262" rx="120" ry="12" />
+        </g>
+        <path d="M0 392 C 70 376 130 386 190 380 C 250 374 320 384 390 372 L 390 430 L 0 430 Z" fill="#7A5436" fillOpacity="0.55" />
+        <g fill="#8A6636">
+          <path d="M96 214 L100 178 L104 214 Z" />
+          <path d="M78 256 C 78 234 86 222 100 214 C 114 222 122 234 122 256 Z" />
+          <rect x="76" y="252" width="48" height="230" />
+          <path d="M70 300 L74 274 L78 300 Z" />
+          <path d="M122 300 L126 274 L130 300 Z" />
+          <rect x="64" y="298" width="18" height="184" />
+          <rect x="118" y="298" width="18" height="184" />
+        </g>
+        <path d="M76 252 L100 238 L124 252 Z" fill="#5E4224" />
+        <g fill="#E0A85C">
+          <rect x="86" y="286" width="12" height="26" rx="6" />
+          <rect x="104" y="286" width="12" height="26" rx="6" />
+          <rect x="88" y="342" width="10" height="22" rx="5" />
+          <rect x="104" y="342" width="10" height="22" rx="5" />
+          <rect x="68" y="352" width="9" height="20" rx="4.5" />
+          <rect x="123" y="352" width="9" height="20" rx="4.5" />
+        </g>
+        <g fill="#7E5B2F">
+          <path d="M332 330 L336 300 L340 330 Z" />
+          <path d="M318 364 C 318 348 324 338 336 330 C 348 338 354 348 354 364 Z" />
+          <rect x="316" y="360" width="40" height="150" />
+        </g>
+        <g fill="#D9A24E">
+          <rect x="324" y="392" width="10" height="22" rx="5" />
+          <rect x="338" y="392" width="10" height="22" rx="5" />
+        </g>
+        <g fill="#7A4A26">
+          <path d="M0 470 L44 442 L92 470 L92 540 L0 540 Z" />
+          <path d="M130 486 L180 458 L232 486 L232 548 L130 548 Z" />
+          <path d="M236 500 L286 474 L336 500 L336 556 L236 556 Z" />
+          <path d="M340 492 L390 468 L390 556 L340 556 Z" />
+        </g>
+        <rect y="512" width="390" height="56" fill="#5C3519" />
+        <g fill="#C98F45">
+          {[[22, 492], [54, 492], [152, 506], [196, 506], [264, 520], [300, 520]].map(([x, y]) => (
+            <rect key={x} x={x} y={y} width="8" height="16" rx="4" />
+          ))}
+        </g>
+        <path d="M0 556 C 30 520 62 548 88 524 C 116 546 138 566 160 552 C 186 536 214 560 240 544 C 268 528 300 556 330 540 C 356 528 374 548 390 538 L 390 700 L 0 700 Z" fill="#313318" />
+        <path d="M0 610 C 44 584 84 606 124 592 C 168 576 206 604 248 592 C 292 580 332 606 390 588 L 390 760 L 0 760 Z" fill="#23240F" />
+        <rect y="470" width="390" height="374" fill="url(#cmFloor)" />
+        <rect width="390" height="180" fill="url(#cmTopScrim)" />
+        {/* The transcript runs over the whole narrow screen, so the scene is
+            dimmed evenly to keep the bubbles readable. */}
+        <rect width="390" height="844" fill="#120F0B" fillOpacity="0.25" />
+      </svg>
+    </div>
   );
 }
