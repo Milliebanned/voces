@@ -78,3 +78,30 @@ const RTL_LANGUAGES = new Set(["ar", "he", "fa", "ur"]);
 export function textDirection(code: string | null | undefined) {
   return code && RTL_LANGUAGES.has(code) ? "rtl" : "ltr";
 }
+
+// Each language's name for itself, shown under the English name so a learner
+// recognises their own language at a glance.
+const ENDONYMS: Record<string, string> = {
+  en: "English",
+  es: "Español",
+  fr: "Français",
+  de: "Deutsch",
+  it: "Italiano",
+  pt: "Português",
+  nl: "Nederlands",
+  sv: "Svenska",
+  da: "Dansk",
+  fi: "Suomi",
+  no: "Norsk",
+  tr: "Türkçe",
+  hi: "हिन्दी",
+  vi: "Tiếng Việt",
+  ar: "العربية",
+  he: "עברית",
+  ja: "日本語",
+  zh: "中文",
+};
+
+export function endonym(code: string) {
+  return ENDONYMS[code] ?? code;
+}
