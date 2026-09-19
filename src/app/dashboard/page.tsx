@@ -1,19 +1,128 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
-import { DeleteSessionButton } from "@/components/delete-session-button";
-import { Flashcards } from "@/components/flashcards";
-import { RecordingPlayer } from "@/components/recording-player";
-import { Wordmark } from "@/components/wordmark";
-import { languageName, textDirection } from "@/lib/languages";
-import { scenarioLabel } from "@/lib/scenarios";
+import type { ReactNode } from "react";
+import { startConversation } from "@/app/conversation/new/actions";
+import {
+  ACCENT,
+  AppShell,
+  Avatar,
+  Card,
+  Chevron,
+  levelName,
+} from "@/components/app-shell";
+import { Flag } from "@/components/flag";
+import { Landmark } from "@/components/landmarks";
+import { SessionRow } from "@/components/session-row";
+import { languageName } from "@/lib/languages";
+import { GETTING_THERE, loadProgress } from "@/lib/progress";
+import { SCENARIOS, scenarioBlurb } from "@/lib/scenarios";
 import { createClient, currentUser } from "@/lib/supabase/server";
-import { logout } from "../login/actions";
 
-function formatDate(value: string) {
-  return new Date(value).toLocaleDateString(undefined, {
-    day: "numeric",
-    month: "short",
-  });
+// Said in the language being learned: the first words of practice each visit.
+const HELLO: Record<string, string> = {
+  fr: "Bonjour",
+  es: "Hola",
+  de: "Hallo",
+  it: "Ciao",
+  pt: "Olá",
+  en: "Hello",
+};
+
+function MicIcon({ size = 18 }: { size?: number }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="#FFFFFF" strokeWidth="2" strokeLinecap="round" aria-hidden>
+      <rect x="9" y="2.4" width="6" height="12" rx="3" fill="#FFFFFF" stroke="none" />
+      <path d="M5.5 11.2v1a6.5 6.5 0 0 0 13 0v-1" />
+      <path d="M12 19.4V22" />
+    </svg>
+  );
+}
+
+function BookIcon({ stroke = "#FFFFFF", size = 18 }: { stroke?: string; size?: number }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={stroke} strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+      <path d="M4 4.6 h5.2 A2.8 2.8 0 0 1 12 7.4 V20 a2.4 2.4 0 0 0 -2.4 -2.4 H4 Z" />
+      <path d="M20 4.6 h-5.2 A2.8 2.8 0 0 0 12 7.4 V20 a2.4 2.4 0 0 1 2.4 -2.4 H20 Z" />
+    </svg>
+  );
+}
+
+function Arrow() {
+  return (
+    <svg width="15" height="12" viewBox="0 0 18 14" fill="none" stroke="#FFFFFF" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+      <path d="M1 7 h15" />
+      <path d="M10.4 1.4 L16 7 l-5.6 5.6" />
+    </svg>
+  );
+}
+
+function Ring({ percent, size = 92, label }: { percent: number; size?: number; label?: string }) {
+  const stroke = size > 80 ? 9 : 8;
+  const r = size / 2 - stroke / 2 - 1;
+  const circumference = 2 * Math.PI * r;
+  const filled = (circumference * Math.min(100, percent)) / 100;
+  return (
+    <span className="relative block shrink-0" style={{ width: size, height: size }}>
+      <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`} aria-hidden>
+        <circle cx={size / 2} cy={size / 2} r={r} fill="none" stroke="#EDEAE2" strokeWidth={stroke} />
+        {percent > 0 && (
+          <circle
+            cx={size / 2}
+            cy={size / 2}
+            r={r}
+            fill="none"
+            stroke="#E86E23"
+            strokeWidth={stroke}
+            strokeLinecap="round"
+            strokeDasharray={`${filled} ${circumference}`}
+            transform={`rotate(-90 ${size / 2} ${size / 2})`}
+          />
+        )}
+      </svg>
+      <span className="absolute inset-0 flex flex-col items-center justify-center">
+        <span className="text-[19px] font-bold">{percent}%</span>
+        {label && <span className="text-[11px] text-[#6F757B]">{label}</span>}
+      </span>
+    </span>
+  );
+}
+
+function Stat({ value, label, icon }: { value: number; label: string; icon: ReactNode }) {
+  return (
+    <span className="flex flex-1 flex-col gap-1.5 px-4 first:pl-0">
+      <span className="flex items-center gap-2">
+        {icon}
+        <span className="text-xl font-bold">{value}</span>
+      </span>
+      <span className="text-[12.5px] text-[#6F757B]">{label}</span>
+    </span>
+  );
+}
+
+function QuickAction({ href, title, hint, icon }: { href: string; title: string; hint: string; icon: ReactNode }) {
+  return (
+    <Link
+      href={href}
+      className="flex h-[54px] items-center gap-3 rounded-2xl border border-[#EAE7DF] bg-[#F8F6F1] px-3.5 transition-colors hover:border-[#DA5C1B]/50"
+    >
+      <span className="grid size-[34px] shrink-0 place-items-center rounded-full" style={{ background: ACCENT }}>
+        {icon}
+      </span>
+      <span className="flex flex-1 flex-col">
+        <span className="text-sm font-semibold">{title}</span>
+        <span className="text-xs text-[#6F757B]">{hint}</span>
+      </span>
+      <Chevron />
+    </Link>
+  );
+}
+
+function strengthBadge(score: number) {
+  return score < GETTING_THERE ? (
+    <span className="shrink-0 rounded-full bg-[#FBE8D8] px-2.5 py-1 text-[11px] font-semibold text-[#A84A0C]">Weak</span>
+  ) : (
+    <span className="shrink-0 rounded-full bg-[#FCEFDC] px-2.5 py-1 text-[11px] font-semibold text-[#8A5A08]">Medium</span>
+  );
 }
 
 export default async function DashboardPage() {
@@ -24,165 +133,485 @@ export default async function DashboardPage() {
 
   const { data: profile } = await supabase
     .from("profiles")
-    .select("display_name, target_language, native_language, skill_level, onboarded_at")
+    .select("display_name, target_language, skill_level, goals, onboarded_at")
     .eq("id", user.id)
     .single();
 
   if (!profile?.onboarded_at) redirect("/onboarding");
 
-  const targetLanguage = profile.target_language ?? "";
+  const target = profile.target_language ?? "fr";
+  const language = languageName(target) ?? target;
+  const progress = await loadProgress(supabase, target);
+  const name = profile.display_name;
+  const hello = `${HELLO[target] ?? "Hello"}${name ? `, ${name}` : ""}`;
 
-  const [{ data: weakest, count: vocabularyCount }, { data: sessions }] =
-    await Promise.all([
-      supabase
-        .from("vocabulary_items")
-        .select("id, text, translation, example, confidence_score", {
-          count: "exact",
-        })
-        .eq("target_language", targetLanguage)
-        // Weakest first, so the deck opens on what most needs practice.
-        .order("confidence_score", { ascending: true })
-        .limit(20),
-      supabase
-        .from("sessions")
-        .select("id, scenario, started_at, agent_session_id")
-        .eq("target_language", targetLanguage)
-        // Sessions opened but never started are noise, not history.
-        .neq("status", "active")
-        .order("started_at", { ascending: false })
-        .limit(5),
-    ]);
+  // The scenario practised longest ago, or never, is the one to suggest next.
+  const lastPractised = new Map<string, number>();
+  for (const session of progress.sessions) {
+    if (session.scenario && !lastPractised.has(session.scenario)) {
+      lastPractised.set(session.scenario, new Date(session.startedAt).getTime());
+    }
+  }
+  const suggested = [...SCENARIOS].sort(
+    (a, b) => (lastPractised.get(a.id) ?? 0) - (lastPractised.get(b.id) ?? 0),
+  )[0];
 
-  const greeting = profile.display_name
-    ? `Welcome back, ${profile.display_name}`
-    : "Welcome back";
+  const recent = progress.sessions.slice(0, 4);
+  const { strong, gettingThere, fresh } = progress.strength;
+  const total = Math.max(1, progress.wordCount);
+
+  const stats = (
+    <>
+      <Stat
+        value={progress.wordsLearned}
+        label="Words learned"
+        icon={<BookIcon stroke="#8F959D" size={16} />}
+      />
+      <span className="w-px self-stretch bg-[#EAE7DF]" />
+      <Stat
+        value={progress.streak}
+        label="Day streak"
+        icon={
+          <svg width="16" height="16" viewBox="0 0 24 24" aria-hidden>
+            <path d="M12 2.6 C 12 8 16.6 9 16.6 13.6 a4.6 4.6 0 0 1 -9.2 0 C 7.4 9 12 8 12 2.6 Z" fill="#E8722A" />
+          </svg>
+        }
+      />
+      <span className="w-px self-stretch bg-[#EAE7DF]" />
+      <Stat
+        value={progress.conversationCount}
+        label="Conversations"
+        icon={
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#8F959D" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+            <path d="M20.5 11.6 a7.6 7.6 0 0 1 -10.8 6.9 L5 19.8 l1.1 -4.8 A7.6 7.6 0 1 1 20.5 11.6 Z" />
+          </svg>
+        }
+      />
+    </>
+  );
+
+  const suggestedReview = (
+    <Card>
+      <div className="flex items-center">
+        <h2 className="flex-1 text-base font-bold tracking-[-0.01em]">Suggested Review</h2>
+        <Link href="/vocabulary#review" className="text-[12.5px] font-medium text-[#6F757B] hover:text-[#23252A]">
+          Review all
+        </Link>
+      </div>
+      {progress.weakest.length > 0 ? (
+        <ul className="mt-3 flex flex-col gap-1">
+          {progress.weakest.map((word) => (
+            <li key={word.id}>
+              <Link href="/vocabulary#review" className="flex h-[46px] items-center gap-2.5 rounded-xl">
+                <span className="grid size-7 shrink-0 place-items-center rounded-[9px]" style={{ background: ACCENT }}>
+                  <BookIcon size={14} />
+                </span>
+                <span className="flex min-w-0 flex-1 flex-col">
+                  <span className="truncate text-[13.5px] font-semibold">{word.text}</span>
+                  {word.translation && (
+                    <span className="truncate text-[11.5px] text-[#6F757B]">{word.translation}</span>
+                  )}
+                </span>
+                {strengthBadge(word.confidence_score)}
+              </Link>
+            </li>
+          ))}
+        </ul>
+      ) : (
+        <p className="mt-3 text-[13px] leading-relaxed text-[#6F757B]">
+          Words you reach for in conversation will show up here to review.
+        </p>
+      )}
+    </Card>
+  );
 
   return (
-    <main className="flex flex-1 flex-col">
-      <header className="mx-auto flex w-full max-w-5xl items-center justify-between px-6 py-6">
-        <Wordmark />
-        <div className="flex items-center gap-6">
-          <Link
-            href="/settings"
-            className="text-sm font-medium text-muted transition-colors hover:text-foreground"
-          >
-            Settings
-          </Link>
-          <form action={logout}>
-            <button
-              type="submit"
-              className="text-sm font-medium text-muted transition-colors hover:text-foreground"
-            >
-              Sign out
-            </button>
-          </form>
-        </div>
-      </header>
-
-      <div className="mx-auto w-full max-w-5xl px-6 pb-24">
-        <p className="text-sm font-medium text-muted">{greeting}</p>
-        <div className="mt-2 flex flex-wrap items-baseline gap-x-4 gap-y-1">
-          <h1 className="text-[32px] leading-tight font-bold tracking-[-0.02em]">
-            Your {languageName(targetLanguage)}
-          </h1>
-          <Link
-            href="/settings"
-            className="text-[13px] font-medium text-accent hover:underline"
-          >
-            Change language or level
-          </Link>
-        </div>
-
-        <section className="mt-8 overflow-hidden rounded-3xl border border-border bg-surface">
-          <div className="flex flex-col gap-6 p-8 sm:flex-row sm:items-center sm:justify-between">
-            <div className="max-w-[420px]">
-              <h2 className="text-xl font-semibold tracking-[-0.01em]">
-                Start a conversation
-              </h2>
-              <p className="mt-2 text-sm leading-relaxed text-muted">
-                Speak for as long as you like. Corrections wait until you&apos;re
-                done, so nothing interrupts you mid-sentence.
-              </p>
-            </div>
-            <Link
-              href="/conversation/new"
-              className="shrink-0 self-start rounded-full bg-accent px-7 py-4 text-base font-semibold text-white transition-colors hover:bg-accent-hover"
-            >
-              Start speaking
-            </Link>
+    <AppShell active="home" name={name} targetLanguage={target} level={profile.skill_level}>
+      {/* ------------------------------------------------------------ narrow */}
+      <div className="flex flex-col gap-5 px-5 pt-8 lg:hidden">
+        <div className="flex items-start gap-3">
+          <div className="flex-1">
+            <h1 className="text-[26px] font-bold tracking-[-0.02em]">{hello}</h1>
+            <p className="mt-1.5 text-sm text-[#6F757B]">Keep going, you&apos;re making progress.</p>
           </div>
-        </section>
+          <Avatar name={name} size={44} />
+        </div>
 
-        <div className="mt-6 grid gap-6 md:grid-cols-2">
-          <section className="rounded-3xl border border-border bg-surface p-7">
-            <div className="flex items-baseline justify-between">
-              <h2 className="text-[17px] font-semibold tracking-[-0.01em]">
-                Vocabulary bank
-              </h2>
-              <Link
-                href="/vocabulary"
-                className="text-[13px] font-medium text-accent hover:underline"
-              >
-                {vocabularyCount ?? 0} saved
-              </Link>
+        <Link href="/settings" className="flex h-[72px] items-center gap-3.5 rounded-2xl border border-[#E8E5DC] px-4">
+          <Flag code={target} size={40} />
+          <span className="flex flex-1 flex-col">
+            <span className="text-base font-semibold">{language}</span>
+            <span className="text-[13px] text-[#6F757B]">{levelName(profile.skill_level)}</span>
+          </span>
+          <Chevron />
+        </Link>
+
+        <div>
+          <div className="flex items-baseline">
+            <span className="flex-1 text-[15px] font-semibold">Vocabulary strength</span>
+            <span className="text-[15px] font-bold">{progress.averageStrength}%</span>
+          </div>
+          <div className="mt-2.5 h-2.5 rounded-full bg-[#E4E3DE]">
+            <div className="h-2.5 rounded-full bg-[#E86E23]" style={{ width: `${progress.averageStrength}%` }} />
+          </div>
+        </div>
+
+        <div className="grid grid-cols-3 gap-2.5">
+          {[
+            [progress.wordsLearned, "Words learned"],
+            [progress.streak, "Day streak"],
+            [progress.conversationCount, "Conversations"],
+          ].map(([value, label]) => (
+            <div key={label} className="flex h-[86px] flex-col gap-2 rounded-[14px] border border-[#E8E5DC] px-3.5 py-4">
+              <span className="text-xl font-bold">{value}</span>
+              <span className="text-xs text-[#6F757B]">{label}</span>
             </div>
+          ))}
+        </div>
 
-            {weakest && weakest.length > 0 ? (
-              <Flashcards
-                cards={weakest}
-                direction={textDirection(targetLanguage)}
-              />
-            ) : (
-              <p className="mt-5 text-sm leading-relaxed text-muted">
-                Nothing saved yet. Words you stumble over in conversation land
-                here automatically, or you can{" "}
-                <Link href="/vocabulary" className="text-accent hover:underline">
-                  add some yourself
-                </Link>
-                .
-              </p>
+        <Link
+          href="/conversation/new"
+          className="flex h-[60px] items-center justify-center gap-3 rounded-full text-[17px] font-semibold text-white shadow-[0_12px_26px_rgba(160,64,14,0.24)]"
+          style={{ background: ACCENT }}
+        >
+          <MicIcon size={20} />
+          Start Conversation
+        </Link>
+
+        <Link href="/vocabulary#review" className="flex h-[76px] items-center gap-3.5 rounded-2xl border border-[#E8E5DC] px-4">
+          <span className="grid size-10 shrink-0 place-items-center rounded-full bg-[#FBE6D3]">
+            <BookIcon stroke={ACCENT} size={20} />
+          </span>
+          <span className="flex flex-1 flex-col gap-0.5">
+            <span className="text-[15px] font-semibold">Suggested Review</span>
+            <span className="text-[13px] text-[#6F757B]">
+              {progress.weakest.length > 0
+                ? `${Math.min(progress.strength.fresh + progress.strength.gettingThere, 99)} words need review`
+                : "Nothing to review yet"}
+            </span>
+          </span>
+          <Chevron />
+        </Link>
+
+        <section>
+          <div className="flex items-center">
+            <h2 className="flex-1 text-[17px] font-bold tracking-[-0.01em]">Recent Sessions</h2>
+            {progress.conversationCount > recent.length && (
+              <Link href="/conversations" className="text-[12.5px] font-medium text-[#6F757B]">View all</Link>
             )}
+          </div>
+          {recent.length > 0 ? (
+            <ul className="mt-3 flex flex-col divide-y divide-[#EAE7DF] border-y border-[#EAE7DF]">
+              {recent.map((session) => (
+                <SessionRow key={session.id} session={session} languageLabel={language} />
+              ))}
+            </ul>
+          ) : (
+            <p className="mt-3 text-sm text-[#6F757B]">Your conversations will show up here.</p>
+          )}
+        </section>
+      </div>
+
+      {/* ------------------------------------------------------------ wide */}
+      <div className="hidden gap-4 lg:grid lg:grid-cols-[minmax(0,1fr)_284px]">
+        <div className="flex min-w-0 flex-col gap-4">
+          <section className="relative min-h-72 overflow-hidden rounded-[20px]">
+            <svg viewBox="0 0 936 288" preserveAspectRatio="xMaxYMid slice" fill="none" className="absolute inset-0 size-full" aria-hidden>
+              <defs>
+                <linearGradient id="hdSky" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="0" stopColor="#2B2438" />
+                  <stop offset="0.28" stopColor="#5E3A3E" />
+                  <stop offset="0.52" stopColor="#B0522A" />
+                  <stop offset="0.68" stopColor="#E2802F" />
+                  <stop offset="0.84" stopColor="#8A4A22" />
+                  <stop offset="1" stopColor="#2A1B12" />
+                </linearGradient>
+                <linearGradient id="hdLeft" x1="0" y1="0" x2="1" y2="0">
+                  <stop offset="0" stopColor="#1A1109" stopOpacity="0.86" />
+                  <stop offset="0.5" stopColor="#1A1109" stopOpacity="0.42" />
+                  <stop offset="0.86" stopColor="#1A1109" stopOpacity="0" />
+                </linearGradient>
+              </defs>
+              <rect width="936" height="288" fill="url(#hdSky)" />
+              <g fill="#C98A5E" fillOpacity="0.22">
+                <ellipse cx="300" cy="52" rx="300" ry="12" />
+                <ellipse cx="760" cy="92" rx="250" ry="10" />
+                <ellipse cx="420" cy="128" rx="280" ry="11" />
+              </g>
+              <g style={{ filter: "brightness(0.45)" }}>
+                <Landmark code={target} x={640} baseline={262} scale={0.6} />
+              </g>
+              <g fill="#2E1C12">
+                <path d="M0 214 h120 v54 H0 Z" />
+                <path d="M130 224 h96 v44 h-96 Z" />
+                <path d="M238 208 h110 v60 H238 Z" />
+                <path d="M360 226 h120 v42 H360 Z" />
+                <path d="M492 216 h96 v52 h-96 Z" />
+                <path d="M828 218 h108 v50 H828 Z" />
+              </g>
+              <g fill="#F0B45E" fillOpacity="0.75">
+                {[[22, 230], [52, 238], [160, 240], [268, 226], [300, 240], [404, 242], [522, 232], [864, 234]].map(([x, y]) => (
+                  <rect key={x} x={x} y={y} width="6" height="9" rx="2" />
+                ))}
+              </g>
+              <rect y="256" width="936" height="32" fill="#1E1309" />
+              <rect width="936" height="288" fill="url(#hdLeft)" />
+            </svg>
+
+            <Link
+              href="/settings"
+              className="absolute top-6 right-6 flex h-10 items-center gap-2 rounded-xl bg-[#FAF7F0]/92 pr-3.5 pl-2 text-sm font-semibold"
+            >
+              <Flag code={target} size={24} />
+              {language}
+              <Chevron />
+            </Link>
+
+            <div className="relative px-10 pt-10 pb-9">
+              <p className="text-[13px] font-bold tracking-[0.12em] text-[#F2913F] uppercase">{hello}</p>
+              <h1 className="mt-3.5 text-[38px] leading-[1.22] font-bold tracking-[-0.03em] text-white">
+                Practice the language by
+                <br />
+                actually <span className="text-[#F2913F]">speaking it.</span>
+              </h1>
+              <p className="mt-4 max-w-[440px] text-[15px] leading-[23px] text-white/82">
+                Voice-first language immersion. Real conversations, smarter
+                learning, lasting progress.
+              </p>
+              <div className="mt-6 flex items-center gap-4">
+                <Link
+                  href="/conversation/new"
+                  className="flex h-[52px] items-center gap-2.5 rounded-full px-6 text-[15px] font-semibold text-white transition-colors hover:bg-[#B94A13]"
+                  style={{ background: ACCENT }}
+                >
+                  <MicIcon />
+                  Start Conversation
+                  <Arrow />
+                </Link>
+                <Link
+                  href="/vocabulary#review"
+                  className="flex h-[52px] items-center gap-2.5 rounded-full border border-white/55 px-6 text-[15px] font-semibold text-white transition-colors hover:bg-white/10"
+                >
+                  <BookIcon />
+                  Review Vocabulary
+                </Link>
+              </div>
+            </div>
           </section>
 
-          <section className="rounded-3xl border border-border bg-surface p-7">
-            <h2 className="text-[17px] font-semibold tracking-[-0.01em]">
-              Recent sessions
-            </h2>
+          <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_416px]">
+            <Card>
+              <h2 className="text-[17px] font-bold tracking-[-0.01em]">Your Progress</h2>
+              <div className="mt-4 flex items-center gap-6">
+                <Ring percent={progress.averageStrength} label="Strength" />
+                <span className="flex flex-1 items-center">{stats}</span>
+              </div>
+            </Card>
 
-            {sessions && sessions.length > 0 ? (
-              <ul className="mt-5 flex flex-col gap-3">
-                {sessions.map((session) => (
-                  <li
-                    key={session.id}
-                    className="flex items-center gap-3 border-b border-border pb-3 last:border-0 last:pb-0"
+            <Card className="flex flex-col gap-3">
+              <h2 className="mb-0.5 text-[17px] font-bold tracking-[-0.01em]">Quick Actions</h2>
+              <QuickAction href="/conversation/new" title="Start Conversation" hint="Practice speaking naturally" icon={<MicIcon size={16} />} />
+              <QuickAction href="/vocabulary#review" title="Review Weak Words" hint="Focus on what you struggle with" icon={<BookIcon size={16} />} />
+              <QuickAction
+                href="/vocabulary"
+                title="View Vocabulary"
+                hint="Manage your word bank"
+                icon={
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#FFFFFF" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+                    <path d="M4.4 5.2 h6.2 v14.2 H4.4 Z" />
+                    <path d="M13.4 5.2 h6.2 v14.2 h-6.2 Z" />
+                  </svg>
+                }
+              />
+            </Card>
+          </div>
+
+          <Card>
+            <h2 className="text-[17px] font-bold tracking-[-0.01em]">Continue Learning</h2>
+            <p className="mt-1.5 text-sm text-[#6F757B]">
+              Your next session is ready. Keep the momentum going.
+            </p>
+            <div className="relative mt-3.5 h-28 overflow-hidden rounded-[14px]">
+              <svg viewBox="0 0 892 112" preserveAspectRatio="xMidYMid slice" fill="none" className="absolute inset-0 size-full" aria-hidden>
+                <defs>
+                  <linearGradient id="hdCoastSky" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="0" stopColor="#8FC6DC" />
+                    <stop offset="1" stopColor="#CFE3E2" />
+                  </linearGradient>
+                  <linearGradient id="hdSea" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="0" stopColor="#2E7FA6" />
+                    <stop offset="1" stopColor="#1D5D80" />
+                  </linearGradient>
+                  <linearGradient id="hdCoastScrim" x1="0" y1="0" x2="1" y2="0">
+                    <stop offset="0" stopColor="#10222C" stopOpacity="0.80" />
+                    <stop offset="0.52" stopColor="#10222C" stopOpacity="0.18" />
+                    <stop offset="1" stopColor="#10222C" stopOpacity="0.34" />
+                  </linearGradient>
+                </defs>
+                <rect width="892" height="112" fill="url(#hdCoastSky)" />
+                <path d="M0 28 C 90 18 150 34 220 30 L 220 112 L 0 112 Z" fill="#6E8E8C" />
+                <rect y="46" width="892" height="66" fill="url(#hdSea)" />
+                <path d="M250 112 C 268 66 320 44 392 40 C 470 36 540 52 600 44 C 680 34 780 46 892 30 L 892 112 Z" fill="#3E6A46" />
+                <g fill="#E8CBAE">
+                  {[[418, 46, 26, 30], [452, 38, 30, 38], [490, 48, 24, 28], [560, 42, 30, 34], [600, 52, 26, 24], [676, 40, 30, 36], [716, 50, 26, 26], [790, 36, 32, 40]].map(([x, y, w, h]) => (
+                    <rect key={x} x={x} y={y} width={w} height={h} />
+                  ))}
+                </g>
+                <g fill="#B4603C">
+                  {[[416, 42, 30], [450, 34, 34], [488, 44, 28], [558, 38, 34], [598, 48, 30], [674, 36, 34], [714, 46, 30], [788, 32, 36]].map(([x, y, w]) => (
+                    <rect key={x} x={x} y={y} width={w} height="6" />
+                  ))}
+                </g>
+                <path d="M250 112 C 300 96 360 100 420 92 C 500 82 580 96 660 88 C 750 78 830 92 892 84 L 892 112 Z" fill="#2F5637" />
+                <rect width="892" height="112" fill="url(#hdCoastScrim)" />
+              </svg>
+
+              <div className="relative flex h-full items-center gap-6 px-5">
+                <div className="min-w-0 flex-1">
+                  <span className="inline-flex h-[26px] items-center gap-1.5 rounded-full bg-[#10181E]/55 px-3 text-xs font-semibold text-white">
+                    Scenario
+                  </span>
+                  <p className="mt-1.5 text-[22px] font-bold tracking-[-0.02em] text-white">{suggested.label}</p>
+                  <p className="truncate text-[13.5px] text-white/86">{scenarioBlurb(suggested.id)}</p>
+                </div>
+                <form action={startConversation}>
+                  <input type="hidden" name="scenario" value={suggested.id} />
+                  <button
+                    type="submit"
+                    className="flex h-[46px] items-center gap-2.5 rounded-full px-6 text-[15px] font-semibold text-white transition-colors hover:bg-[#B94A13]"
+                    style={{ background: ACCENT }}
                   >
-                    {session.agent_session_id ? (
-                      <RecordingPlayer sessionId={session.id} />
-                    ) : (
-                      <span className="size-9 shrink-0" />
-                    )}
-                    <Link
-                      href={`/conversation/${session.id}/analysis`}
-                      className="flex-1 text-[15px] font-medium hover:text-accent"
-                    >
-                      {scenarioLabel(session.scenario) ?? "Free conversation"}
-                    </Link>
-                    <span className="text-[13px] text-muted">
-                      {formatDate(session.started_at)}
+                    Start
+                    <Arrow />
+                  </button>
+                </form>
+              </div>
+            </div>
+          </Card>
+
+          <div className="grid gap-4 xl:grid-cols-[1.1fr_1fr_0.9fr]">
+            {suggestedReview}
+
+            <Card>
+              <div className="flex items-center">
+                <h2 className="flex-1 text-base font-bold tracking-[-0.01em]">Vocabulary Progress</h2>
+                <Link href="/vocabulary" className="text-[12.5px] font-medium text-[#6F757B] hover:text-[#23252A]">View all</Link>
+              </div>
+              <div className="mt-4 flex flex-col gap-3.5">
+                {[
+                  ["Strong", strong, "#29B46C"],
+                  ["Getting there", gettingThere, "#E8A02A"],
+                  ["New", fresh, "#E8722A"],
+                ].map(([label, count, color]) => (
+                  <div key={label as string} className="flex flex-col gap-1.5">
+                    <span className="flex items-baseline">
+                      <span className="flex-1 text-[13.5px] font-medium">{label}</span>
+                      <span className="text-[12.5px] font-semibold text-[#6F757B]">
+                        {count} {count === 1 ? "word" : "words"}
+                      </span>
                     </span>
-                    <DeleteSessionButton sessionId={session.id} />
-                  </li>
+                    <span className="block h-2 rounded-full bg-[#EDEAE2]">
+                      <span
+                        className="block h-2 rounded-full"
+                        style={{ width: `${(100 * (count as number)) / total}%`, background: color as string }}
+                      />
+                    </span>
+                  </div>
+                ))}
+              </div>
+            </Card>
+
+            <section className="relative flex flex-col items-center overflow-hidden rounded-[20px] border border-[#F1DCC6] bg-[#FCEEE0] px-5 pt-7 pb-16 text-center">
+              <svg width="54" height="42" viewBox="0 0 48 48" fill={ACCENT} aria-hidden>
+                <rect x="0" y="17" width="6" height="14" rx="3" />
+                <rect x="10.5" y="9" width="6" height="30" rx="3" />
+                <rect x="21" y="0" width="6" height="48" rx="3" />
+                <rect x="31.5" y="9" width="6" height="30" rx="3" />
+                <rect x="42" y="17.5" width="6" height="13" rx="3" />
+              </svg>
+              <p className="mt-5 text-xl leading-snug font-bold tracking-[-0.02em]">
+                Small steps.
+                <br />
+                <span style={{ color: ACCENT }}>Big conversations.</span>
+              </p>
+              <p className="mt-3 text-[13px] text-[#7A6A5E]">Keep speaking, keep learning.</p>
+              <svg viewBox="0 0 272 70" preserveAspectRatio="none" fill="none" className="absolute inset-x-0 bottom-0 h-[70px] w-full" aria-hidden>
+                <g stroke="#E8722A" strokeLinecap="round" strokeWidth="2">
+                  <path d="M-10 36 C 40 14 92 54 140 34 C 188 14 232 46 282 26" strokeOpacity="0.34" />
+                  <path d="M-10 50 C 40 28 92 68 140 48 C 188 28 232 60 282 40" strokeOpacity="0.26" />
+                  <path d="M-10 64 C 40 42 92 82 140 62 C 188 42 232 74 282 54" strokeOpacity="0.18" />
+                </g>
+              </svg>
+            </section>
+          </div>
+        </div>
+
+        <div className="flex flex-col gap-4">
+          <Card>
+            <div className="flex items-center gap-3.5">
+              <Avatar name={name} size={56} />
+              <span className="flex min-w-0 flex-1 flex-col gap-1">
+                <span className="truncate text-[19px] font-bold tracking-[-0.01em]">{name ?? "You"}</span>
+                <span className="text-[12.5px] text-[#6F757B]">
+                  {levelName(profile.skill_level)} · {language}
+                </span>
+                <Link
+                  href="/settings"
+                  className="mt-1 self-start rounded-full border border-[#E5A97F] px-3 py-1 text-[12.5px] font-semibold"
+                  style={{ color: ACCENT }}
+                >
+                  Edit Profile
+                </Link>
+              </span>
+            </div>
+            {profile.goals && (
+              <div className="mt-5 border-t border-[#EAE7DF] pt-4">
+                <p className="text-xs font-semibold tracking-wide text-[#6F757B] uppercase">Learning goal</p>
+                <p className="mt-1.5 text-[13.5px] leading-relaxed">{profile.goals}</p>
+              </div>
+            )}
+          </Card>
+
+          <Card>
+            <h2 className="text-base font-bold tracking-[-0.01em]">This Week</h2>
+            <div className="mt-3.5 grid grid-cols-2 gap-3">
+              <div className="rounded-2xl bg-[#F8F6F1] px-4 py-3">
+                <p className="text-xl font-bold">{progress.weekConversations}</p>
+                <p className="text-xs text-[#6F757B]">
+                  {progress.weekConversations === 1 ? "conversation" : "conversations"}
+                </p>
+              </div>
+              <div className="rounded-2xl bg-[#F8F6F1] px-4 py-3">
+                <p className="text-xl font-bold">{progress.weekMinutes}</p>
+                <p className="text-xs text-[#6F757B]">minutes speaking</p>
+              </div>
+            </div>
+          </Card>
+
+          <Card className="flex-1">
+            <div className="flex items-center">
+              <h2 className="flex-1 text-base font-bold tracking-[-0.01em]">Recent Sessions</h2>
+              {progress.conversationCount > recent.length && (
+                <Link href="/conversations" className="text-[12.5px] font-medium text-[#6F757B] hover:text-[#23252A]">
+                  View all
+                </Link>
+              )}
+            </div>
+            {recent.length > 0 ? (
+              <ul className="mt-3 flex flex-col gap-2">
+                {recent.map((session) => (
+                  <SessionRow key={session.id} session={session} languageLabel={language} compact />
                 ))}
               </ul>
             ) : (
-              <p className="mt-5 text-sm leading-relaxed text-muted">
+              <p className="mt-3 text-[13px] leading-relaxed text-[#6F757B]">
                 No conversations yet. Your first one will show up here with a
-                breakdown of what went well and what to work on.
+                review of what went well.
               </p>
             )}
-          </section>
+          </Card>
         </div>
       </div>
-    </main>
+    </AppShell>
   );
 }

@@ -58,3 +58,19 @@ export function scenarioLabel(id: string | null) {
   if (!id) return null;
   return SCENARIOS.find((scenario) => scenario.id === id)?.label ?? null;
 }
+
+// What each scenario offers, written for the learner rather than the agent.
+const BLURBS: Record<string, string> = {
+  daily_life: "Talk about your day, your plans and what's been going on.",
+  restaurant: "Order food, ask about the menu and chat with the waiter.",
+  travel: "Ask for directions and find out what's worth seeing.",
+  shopping: "Describe what you're after, ask about sizes and prices.",
+  doctor: "Explain how you feel and understand what you're told.",
+  work: "Small talk with a colleague before a meeting starts.",
+  interview: "Talk about your experience and answer common questions.",
+  friends: "Catch up with an old friend and share your news.",
+};
+
+export function scenarioBlurb(id: string) {
+  return BLURBS[id] ?? "";
+}

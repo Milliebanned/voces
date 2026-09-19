@@ -1,8 +1,9 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { NewConversationLink } from "@/components/new-conversation-link";
+import { Flashcards } from "@/components/flashcards";
 import { Wordmark } from "@/components/wordmark";
-import { languageName } from "@/lib/languages";
+import { languageName, textDirection } from "@/lib/languages";
 import { createClient, currentUser } from "@/lib/supabase/server";
 import { addVocabularyItem, deleteVocabularyItem } from "./actions";
 
@@ -53,6 +54,23 @@ export default async function VocabularyPage() {
           Anything saved here can resurface mid-conversation, so your partner
           creates openings to use it without turning into a quiz.
         </p>
+
+        {items && items.length > 0 && (
+          <section id="review" className="mt-8 scroll-mt-6 rounded-2xl border border-border bg-surface p-5">
+            <h2 className="text-[17px] font-semibold tracking-[-0.01em]">
+              Review
+            </h2>
+            <p className="mt-1 text-[13px] text-muted">
+              Weakest first. Tap a card to see what it means.
+            </p>
+            <Flashcards
+              cards={[...items]
+                .sort((a, b) => a.confidence_score - b.confidence_score)
+                .slice(0, 20)}
+              direction={textDirection(profile.target_language)}
+            />
+          </section>
+        )}
 
         <form
           action={addVocabularyItem}
