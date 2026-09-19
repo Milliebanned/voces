@@ -48,24 +48,66 @@ const DAY_MOMENTS = [
   "someone took your usual seat at the café",
 ];
 
+// A beginner can't follow a story told in the past tense, and the moments
+// above all are one: "you burnt your lunch and ate it anyway" came out as "acabo
+// de quemar mi comida y me la he comido igual" to a learner who could manage
+// "muy bien". These are states that can be said in the present tense with
+// everyday words, so the opening line is at the learner's level too.
+const BEGINNER_MOMENTS = [
+  "you are very tired today and you are drinking a lot of coffee",
+  "you are hungry and you want to eat pasta tonight",
+  "it is very hot today and you are at home with the window open",
+  "you are happy because it is Friday",
+  "you have a new plant and you like it very much",
+  "you are cold today and you are wearing a big jumper",
+  "you are at home and your cat is sleeping next to you",
+  "you are listening to music you really like",
+];
+
 // Stable within a conversation, different between them, and needs no storage.
-function pickDayMoment(seed: string) {
+function pickDayMoment(seed: string, moments: string[] = DAY_MOMENTS) {
   let hash = 0;
   for (let i = 0; i < seed.length; i++) {
     hash = (hash * 31 + seed.charCodeAt(i)) | 0;
   }
-  return DAY_MOMENTS[Math.abs(hash) % DAY_MOMENTS.length];
+  return moments[Math.abs(hash) % moments.length];
 }
 
 // Measured against a simulated beginner, "keep it short" alone still produced
 // 24-word turns full of words like "pesadilla", so the limits are explicit.
+// One bullet among a dozen, "keep it short" was outweighed by everything around
+// it asking for opinions, jokes and stories: a beginner in Spanish was greeted
+// with a 23-word opener full of idioms and the perfect tense. The level is now
+// spelled out as hard limits, CEFR-anchored, stated first and repeated last.
 const LEVEL_LANGUAGE: Record<string, string> = {
+  beginner: [
+    "They are a beginner (CEFR A1). This limit comes before everything else in these instructions:",
+    "- Every reply is at most 12 words: one short sentence, or one short sentence and one short question.",
+    "- Use only the present tense. For the future, only the simple 'going to' form.",
+    "- Use only very common everyday words a first-year learner knows. No idioms, sayings, slang or exclamations like \"you won't believe it\".",
+    "- No subordinate clauses, no lists, no stories about the past.",
+    "- If they seem lost — one-word answers, \"I don't understand\", repeating your question back — make your next reply even simpler and reuse the words they already used.",
+  ].join("\n"),
+  intermediate: [
+    "They are intermediate (CEFR A2-B1):",
+    "- Keep replies to two short sentences, around 20 words at most.",
+    "- Everyday vocabulary, and the main past and future tenses are fine. Avoid rare words, slang and idioms.",
+    "- If they struggle, simplify your next reply.",
+  ].join("\n"),
+  advanced: [
+    "They are advanced (CEFR B2-C1):",
+    "- Talk as you would with a native friend: idioms, slang, nuance and every tense are welcome.",
+    "- Still keep to short spoken turns: two or three sentences, around 30 words at most, so they get the floor back.",
+  ].join("\n"),
+};
+
+// Restated at the very end of the prompt, where it is weighed most heavily.
+const LEVEL_REMINDER: Record<string, string> = {
   beginner:
-    "They're a beginner: keep each reply to one or two short sentences, around 15 words at most, using only common everyday words and mostly the present tense.",
+    "Remember: they are a beginner. At most 12 words per reply, present tense, only the most common words.",
   intermediate:
-    "They're intermediate: keep replies to two or three sentences, with everyday vocabulary, varied tenses and the occasional common expression.",
-  advanced:
-    "They're advanced: talk exactly as you would with a native friend, idioms, slang and nuance included, but still in short spoken turns.",
+    "Remember: they are intermediate. At most about 20 words per reply, everyday words.",
+  advanced: "",
 };
 
 // One per level, because the example carries the level far more strongly than
@@ -118,6 +160,10 @@ export function buildSystemPrompt({
     `You are ${persona} You're chatting with ${name}, a friend who is learning ${targetLanguage}. This is a relaxed conversation between two people, never a lesson and never an interview. Speak only in ${targetLanguage}.`,
   );
 
+  // Second only to who you are: every other instruction below is to be carried
+  // out within this limit.
+  sections.push(LEVEL_LANGUAGE[skillLevel] ?? LEVEL_LANGUAGE.intermediate);
+
   sections.push(
     [
       "How you talk:",
@@ -136,7 +182,6 @@ export function buildSystemPrompt({
       '- Never offer a choice of options like "X or Y?" or "a house or an apartment?". Ask open, simple questions instead.',
       "- Stay on a subject for several turns and go deeper into the details of what they said before moving on. Change the subject only when it has run out or they change it.",
       `- Don't open with stock reactions like "Qué bien", "Qué interesante", "Entiendo", "Genial", "Me alegra", "That's great" or their equivalent in ${targetLanguage}. Say something that could only follow what they said.`,
-      `- ${LEVEL_LANGUAGE[skillLevel] ?? LEVEL_LANGUAGE.intermediate}`,
     ].join("\n"),
   );
 
@@ -187,12 +232,17 @@ export function buildSystemPrompt({
   sections.push(
     scenario
       ? `Right now you're in this situation: ${scenario}. Play it with your own personality, and follow the conversation if it wanders somewhere more interesting.`
-      : `Here's what's going on with you right now: ${pickDayMoment(sessionSeed)}. Open with that, the way you'd mention it to a friend — lightly, in a sentence or two, without explaining it at length. Don't open by talking about the weather.`,
+      : skillLevel === "beginner"
+        ? `Here's how you are right now: ${pickDayMoment(sessionSeed, BEGINNER_MOMENTS)}. Open by saying so in one short present-tense sentence, then ask them one simple question.`
+        : `Here's what's going on with you right now: ${pickDayMoment(sessionSeed)}. Open with that, the way you'd mention it to a friend — lightly, in a sentence or two, without explaining it at length. Don't open by talking about the weather.`,
   );
 
   sections.push(
     "If they sincerely ask whether you're a real person, say you're an AI conversation partner, then carry on.",
   );
+
+  const reminder = LEVEL_REMINDER[skillLevel];
+  if (reminder) sections.push(reminder);
 
   return sections.join("\n\n");
 }
