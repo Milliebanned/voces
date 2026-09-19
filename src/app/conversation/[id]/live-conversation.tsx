@@ -72,6 +72,22 @@ const THINKING_TURN_DETECTION = {
 const NUDGE_AFTER_MS = 15000;
 const MAX_NUDGES_IN_A_ROW = 1;
 
+// The partner voices do not come out of the service at the same level. Measured
+// on the raw audio of a spoken reply from each, every voice but alba arrived 4-10
+// dB quieter, and lola 10 dB duller above 8 kHz; the service's volume setting
+// made no measurable difference. Learners heard the others as low and muffled,
+// turned their speakers up to compensate, and heard those distort. Each voice is
+// brought up to alba's level here, with a gentle treble lift for the dull ones,
+// and a limiter after so the boost can never clip.
+const VOICE_TUNING: Record<string, { gainDb: number; brightenDb: number }> = {
+  alba: { gainDb: 0, brightenDb: 0 },
+  estelle: { gainDb: 4, brightenDb: 1.5 },
+  lola: { gainDb: 5, brightenDb: 5 },
+  giovanni: { gainDb: 6, brightenDb: 3 },
+  rafael: { gainDb: 8, brightenDb: 3 },
+  juergen: { gainDb: 8, brightenDb: 3 },
+};
+
 // Built in blocks rather than one character at a time. This runs on the same
 // thread that has to keep handing audio to the playback worklet, twenty times a
 // second for the microphone alone, and appending to a string per byte was long
@@ -595,9 +611,29 @@ export function LiveConversation({
         }
         setAgentSpeaking(playing);
       };
+      const tuning = VOICE_TUNING[voice] ?? VOICE_TUNING.alba;
+      const brighten = playbackContext.createBiquadFilter();
+      brighten.type = "highshelf";
+      brighten.frequency.value = 5000;
+      brighten.gain.value = tuning.brightenDb;
+      const makeup = playbackContext.createGain();
+      makeup.gain.value = 10 ** (tuning.gainDb / 20);
+      // A brick-wall limiter just under full scale: transparent on normal
+      // speech, and only ever touches the loudest syllables of a boosted voice.
+      const limiter = playbackContext.createDynamicsCompressor();
+      limiter.threshold.value = -3;
+      limiter.knee.value = 0;
+      limiter.ratio.value = 20;
+      limiter.attack.value = 0.002;
+      limiter.release.value = 0.1;
       const outputGain = playbackContext.createGain();
       outputGain.gain.value = speakerMutedRef.current ? 0 : 1;
-      player.connect(outputGain).connect(playbackContext.destination);
+      player
+        .connect(brighten)
+        .connect(makeup)
+        .connect(limiter)
+        .connect(outputGain)
+        .connect(playbackContext.destination);
       outputGainRef.current = outputGain;
       playerRef.current = player;
 
