@@ -393,8 +393,12 @@ export function LiveConversation({
           userSpeakingRef.current = true;
           nudgesInARowRef.current = 0;
           setUserSpeaking(true);
-          // Barge-in: drop whatever the agent still had queued.
-          clearPlayback();
+          // Barge-in: talking over the agent's voice stops it at once. Only
+          // while it is actually audible, though. A trailing "gracias" often
+          // lands after a reply has started but before its first word plays,
+          // and flushing then threw away the start of a reply the service
+          // carried on sending, so the voice came in halfway through.
+          if (agentPlayingRef.current) clearPlayback();
           break;
         case "input.speech.stopped":
           userSpeakingRef.current = false;
@@ -407,8 +411,12 @@ export function LiveConversation({
         case "transcript.user":
           setPartial("");
           setThinkingTime(false);
-          // Whatever the agent had already said belongs above this reply.
-          commitAgentTurn();
+          // A reply still being spoken is not closed here. The learner's words
+          // often land after the reply has started — a trailing "gracias", or
+          // the final transcript of the turn that prompted it — and committing
+          // then put the agent's whole line on screen before the voice had
+          // said it. The line closes when it has been heard in full, or when
+          // the service reports it was interrupted.
           if (
             !echoGuardRef.current &&
             speechBeganOverAgentRef.current &&
@@ -420,6 +428,10 @@ export function LiveConversation({
           appendTurn("user", message.text ?? "");
           break;
         case "reply.started":
+          // The learner's own words no longer close the previous line, so a
+          // line cut short by barge-in, and never heard to the end, closes
+          // here instead of being overwritten by the new reply.
+          commitAgentTurn();
           agentWordsRef.current = [];
           agentFinalRef.current = null;
           agentTranslationRef.current = null;
@@ -472,14 +484,20 @@ export function LiveConversation({
           agentTranslationRef.current = translate(message.text ?? "");
           // An interrupted reply has no more audio coming, so the trimmed text
           // is final and there is nothing left to reveal it against.
-          if (message.interrupted) commitAgentTurn();
+          if (message.interrupted) {
+            clearPlayback();
+            commitAgentTurn();
+          }
           break;
         case "reply.done":
           playerRef.current?.port.postMessage({ type: "end" });
           leftoverByteRef.current = null;
           replyInFlightRef.current = false;
           quietSinceRef.current = performance.now();
-          if (message.status === "interrupted") commitAgentTurn();
+          if (message.status === "interrupted") {
+            clearPlayback();
+            commitAgentTurn();
+          }
           break;
         case "session.error":
           setError(message.message ?? "The session hit an error.");
