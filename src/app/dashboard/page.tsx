@@ -28,6 +28,58 @@ const HELLO: Record<string, string> = {
   en: "Hello",
 };
 
+// The dusk skyline behind the greeting, with the landmark of the language's
+// country. Anchored right, so a narrow card crops to the landmark rather than
+// to empty sky.
+function HeroScene({ code, id }: { code: string; id: string }) {
+  // Each copy on the page needs its own gradient ids: a url(#…) reference
+  // resolves to the first match, which may sit in the hidden layout.
+  const target = code;
+  return (
+    <svg viewBox="0 0 936 288" preserveAspectRatio="xMaxYMid slice" fill="none" className="absolute inset-0 size-full" aria-hidden>
+      <defs>
+        <linearGradient id={`${id}-sky`} x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0" stopColor="#2B2438" />
+          <stop offset="0.28" stopColor="#5E3A3E" />
+          <stop offset="0.52" stopColor="#B0522A" />
+          <stop offset="0.68" stopColor="#E2802F" />
+          <stop offset="0.84" stopColor="#8A4A22" />
+          <stop offset="1" stopColor="#2A1B12" />
+        </linearGradient>
+        <linearGradient id={`${id}-left`} x1="0" y1="0" x2="1" y2="0">
+          <stop offset="0" stopColor="#1A1109" stopOpacity="0.86" />
+          <stop offset="0.5" stopColor="#1A1109" stopOpacity="0.42" />
+          <stop offset="0.86" stopColor="#1A1109" stopOpacity="0" />
+        </linearGradient>
+      </defs>
+      <rect width="936" height="288" fill={`url(#${id}-sky)`} />
+      <g fill="#C98A5E" fillOpacity="0.22">
+        <ellipse cx="300" cy="52" rx="300" ry="12" />
+        <ellipse cx="760" cy="92" rx="250" ry="10" />
+        <ellipse cx="420" cy="128" rx="280" ry="11" />
+      </g>
+      <g style={{ filter: "brightness(0.45)" }}>
+        <Landmark code={target} x={640} baseline={262} scale={0.6} />
+      </g>
+      <g fill="#2E1C12">
+        <path d="M0 214 h120 v54 H0 Z" />
+        <path d="M130 224 h96 v44 h-96 Z" />
+        <path d="M238 208 h110 v60 H238 Z" />
+        <path d="M360 226 h120 v42 H360 Z" />
+        <path d="M492 216 h96 v52 h-96 Z" />
+        <path d="M828 218 h108 v50 H828 Z" />
+      </g>
+      <g fill="#F0B45E" fillOpacity="0.75">
+        {[[22, 230], [52, 238], [160, 240], [268, 226], [300, 240], [404, 242], [522, 232], [864, 234]].map(([x, y]) => (
+          <rect key={x} x={x} y={y} width="6" height="9" rx="2" />
+        ))}
+      </g>
+      <rect y="256" width="936" height="32" fill="#1E1309" />
+      <rect width="936" height="288" fill={`url(#${id}-left)`} />
+    </svg>
+  );
+}
+
 function MicIcon({ size = 18 }: { size?: number }) {
   return (
     <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="#FFFFFF" strokeWidth="2" strokeLinecap="round" aria-hidden>
@@ -229,22 +281,27 @@ export default async function DashboardPage() {
     <AppShell active="home" name={name} targetLanguage={target} level={profile.skill_level}>
       {/* ------------------------------------------------------------ narrow */}
       <div className="flex flex-col gap-5 px-5 pt-8 lg:hidden">
-        <div className="flex items-start gap-3">
-          <div className="flex-1">
-            <h1 className="text-[26px] font-bold tracking-[-0.02em]">{hello}</h1>
-            <p className="mt-1.5 text-sm text-[#6F757B]">Keep going, you&apos;re making progress.</p>
+        <section className="relative flex min-h-[220px] flex-col overflow-hidden rounded-[20px] p-5">
+          <HeroScene code={target} id="hero-narrow" />
+          <div className="relative flex items-start gap-3">
+            <div className="flex-1">
+              <h1 className="text-[26px] font-bold tracking-[-0.02em] text-white">{hello}</h1>
+              <p className="mt-1.5 text-sm text-white/80">Keep going, you&apos;re making progress.</p>
+            </div>
+            <Avatar name={name} size={44} />
           </div>
-          <Avatar name={name} size={44} />
-        </div>
-
-        <Link href="/settings" className="flex h-[72px] items-center gap-3.5 rounded-2xl border border-[#E8E5DC] px-4">
-          <Flag code={target} size={40} />
-          <span className="flex flex-1 flex-col">
-            <span className="text-base font-semibold">{language}</span>
-            <span className="text-[13px] text-[#6F757B]">{levelName(profile.skill_level)}</span>
-          </span>
-          <Chevron />
-        </Link>
+          <Link
+            href="/settings"
+            className="relative mt-auto flex h-12 items-center gap-2.5 self-start rounded-full bg-[#FAF7F0]/92 pr-4 pl-1.5 backdrop-blur-sm"
+          >
+            <Flag code={target} size={36} />
+            <span className="flex flex-col leading-tight">
+              <span className="text-sm font-semibold">{language}</span>
+              <span className="text-xs text-[#6F757B]">{levelName(profile.skill_level)}</span>
+            </span>
+            <Chevron />
+          </Link>
+        </section>
 
         <div>
           <div className="flex items-baseline">
@@ -316,47 +373,7 @@ export default async function DashboardPage() {
       <div className="hidden gap-4 lg:grid lg:grid-cols-[minmax(0,1fr)_284px]">
         <div className="flex min-w-0 flex-col gap-4">
           <section className="relative min-h-72 overflow-hidden rounded-[20px]">
-            <svg viewBox="0 0 936 288" preserveAspectRatio="xMaxYMid slice" fill="none" className="absolute inset-0 size-full" aria-hidden>
-              <defs>
-                <linearGradient id="hdSky" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="0" stopColor="#2B2438" />
-                  <stop offset="0.28" stopColor="#5E3A3E" />
-                  <stop offset="0.52" stopColor="#B0522A" />
-                  <stop offset="0.68" stopColor="#E2802F" />
-                  <stop offset="0.84" stopColor="#8A4A22" />
-                  <stop offset="1" stopColor="#2A1B12" />
-                </linearGradient>
-                <linearGradient id="hdLeft" x1="0" y1="0" x2="1" y2="0">
-                  <stop offset="0" stopColor="#1A1109" stopOpacity="0.86" />
-                  <stop offset="0.5" stopColor="#1A1109" stopOpacity="0.42" />
-                  <stop offset="0.86" stopColor="#1A1109" stopOpacity="0" />
-                </linearGradient>
-              </defs>
-              <rect width="936" height="288" fill="url(#hdSky)" />
-              <g fill="#C98A5E" fillOpacity="0.22">
-                <ellipse cx="300" cy="52" rx="300" ry="12" />
-                <ellipse cx="760" cy="92" rx="250" ry="10" />
-                <ellipse cx="420" cy="128" rx="280" ry="11" />
-              </g>
-              <g style={{ filter: "brightness(0.45)" }}>
-                <Landmark code={target} x={640} baseline={262} scale={0.6} />
-              </g>
-              <g fill="#2E1C12">
-                <path d="M0 214 h120 v54 H0 Z" />
-                <path d="M130 224 h96 v44 h-96 Z" />
-                <path d="M238 208 h110 v60 H238 Z" />
-                <path d="M360 226 h120 v42 H360 Z" />
-                <path d="M492 216 h96 v52 h-96 Z" />
-                <path d="M828 218 h108 v50 H828 Z" />
-              </g>
-              <g fill="#F0B45E" fillOpacity="0.75">
-                {[[22, 230], [52, 238], [160, 240], [268, 226], [300, 240], [404, 242], [522, 232], [864, 234]].map(([x, y]) => (
-                  <rect key={x} x={x} y={y} width="6" height="9" rx="2" />
-                ))}
-              </g>
-              <rect y="256" width="936" height="32" fill="#1E1309" />
-              <rect width="936" height="288" fill="url(#hdLeft)" />
-            </svg>
+            <HeroScene code={target} id="hero-wide" />
 
             <Link
               href="/settings"
