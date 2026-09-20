@@ -19,14 +19,17 @@ export function PronounceButton({
   return (
     <button
       type="button"
-      onClick={(event) => {
+      onClick={async (event) => {
         // Sits inside cards and list rows that are themselves clickable
         // (the flashcard flip, the row link), so the click must stop here.
         event.stopPropagation();
         event.preventDefault();
-        const utterance = pronounce(text, languageCode);
-        if (!utterance) return;
         setSpeaking(true);
+        const utterance = await pronounce(text, languageCode);
+        if (!utterance) {
+          setSpeaking(false);
+          return;
+        }
         utterance.addEventListener("end", () => setSpeaking(false));
         utterance.addEventListener("error", () => setSpeaking(false));
       }}
