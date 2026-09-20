@@ -80,6 +80,115 @@ function HeroScene({ code, id }: { code: string; id: string }) {
   );
 }
 
+// The coastal scene behind the suggested scenario, rendered once in the
+// narrow layout and once in the wide one, so its gradient ids are
+// parameterised the same way HeroScene's are.
+function CoastScene({ id }: { id: string }) {
+  return (
+    <svg viewBox="0 0 892 112" preserveAspectRatio="xMidYMid slice" fill="none" className="absolute inset-0 size-full" aria-hidden>
+      <defs>
+        <linearGradient id={`${id}-sky`} x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0" stopColor="#8FC6DC" />
+          <stop offset="1" stopColor="#CFE3E2" />
+        </linearGradient>
+        <linearGradient id={`${id}-sea`} x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0" stopColor="#2E7FA6" />
+          <stop offset="1" stopColor="#1D5D80" />
+        </linearGradient>
+        <linearGradient id={`${id}-scrim`} x1="0" y1="0" x2="1" y2="0">
+          <stop offset="0" stopColor="#10222C" stopOpacity="0.80" />
+          <stop offset="0.52" stopColor="#10222C" stopOpacity="0.18" />
+          <stop offset="1" stopColor="#10222C" stopOpacity="0.34" />
+        </linearGradient>
+      </defs>
+      <rect width="892" height="112" fill={`url(#${id}-sky)`} />
+      <path d="M0 28 C 90 18 150 34 220 30 L 220 112 L 0 112 Z" fill="#6E8E8C" />
+      <rect y="46" width="892" height="66" fill={`url(#${id}-sea)`} />
+      <path d="M250 112 C 268 66 320 44 392 40 C 470 36 540 52 600 44 C 680 34 780 46 892 30 L 892 112 Z" fill="#3E6A46" />
+      <g fill="#E8CBAE">
+        {[[418, 46, 26, 30], [452, 38, 30, 38], [490, 48, 24, 28], [560, 42, 30, 34], [600, 52, 26, 24], [676, 40, 30, 36], [716, 50, 26, 26], [790, 36, 32, 40]].map(([x, y, w, h]) => (
+          <rect key={x} x={x} y={y} width={w} height={h} />
+        ))}
+      </g>
+      <g fill="#B4603C">
+        {[[416, 42, 30], [450, 34, 34], [488, 44, 28], [558, 38, 34], [598, 48, 30], [674, 36, 34], [714, 46, 30], [788, 32, 36]].map(([x, y, w]) => (
+          <rect key={x} x={x} y={y} width={w} height="6" />
+        ))}
+      </g>
+      <path d="M250 112 C 300 96 360 100 420 92 C 500 82 580 96 660 88 C 750 78 830 92 892 84 L 892 112 Z" fill="#2F5637" />
+      <rect width="892" height="112" fill={`url(#${id}-scrim)`} />
+    </svg>
+  );
+}
+
+function ContinueLearningCard({
+  suggested,
+  id,
+}: {
+  suggested: (typeof SCENARIOS)[number];
+  id: string;
+}) {
+  return (
+    <Card>
+      <h2 className="text-[17px] font-bold tracking-[-0.01em]">Continue Learning</h2>
+      <p className="mt-1.5 text-sm text-[#6F757B]">
+        Your next session is ready. Keep the momentum going.
+      </p>
+      <div className="relative mt-3.5 h-28 overflow-hidden rounded-[14px]">
+        <CoastScene id={id} />
+        <div className="relative flex h-full items-center gap-6 px-5">
+          <div className="min-w-0 flex-1">
+            <span className="inline-flex h-[26px] items-center gap-1.5 rounded-full bg-[#10181E]/55 px-3 text-xs font-semibold text-white">
+              Scenario
+            </span>
+            <p className="mt-1.5 text-[22px] font-bold tracking-[-0.02em] text-white">{suggested.label}</p>
+            <p className="truncate text-[13.5px] text-white/86">{scenarioBlurb(suggested.id)}</p>
+          </div>
+          <form action={startConversation}>
+            <input type="hidden" name="scenario" value={suggested.id} />
+            <button
+              type="submit"
+              className="flex h-[46px] items-center gap-2.5 rounded-full px-6 text-[15px] font-semibold text-white transition-colors hover:bg-[#B94A13]"
+              style={{ background: ACCENT }}
+            >
+              Start
+              <Arrow />
+            </button>
+          </form>
+        </div>
+      </div>
+    </Card>
+  );
+}
+
+// The closing note at the foot of the dashboard, in both layouts.
+function MomentumCard({ className = "" }: { className?: string }) {
+  return (
+    <section className={`relative flex flex-col items-center overflow-hidden rounded-[20px] border border-[#F1DCC6] bg-[#FCEEE0] px-5 pt-7 pb-16 text-center ${className}`}>
+      <svg width="54" height="42" viewBox="0 0 48 48" fill={ACCENT} aria-hidden>
+        <rect x="0" y="17" width="6" height="14" rx="3" />
+        <rect x="10.5" y="9" width="6" height="30" rx="3" />
+        <rect x="21" y="0" width="6" height="48" rx="3" />
+        <rect x="31.5" y="9" width="6" height="30" rx="3" />
+        <rect x="42" y="17.5" width="6" height="13" rx="3" />
+      </svg>
+      <p className="mt-5 text-xl leading-snug font-bold tracking-[-0.02em]">
+        Small steps.
+        <br />
+        <span style={{ color: ACCENT }}>Big conversations.</span>
+      </p>
+      <p className="mt-3 text-[13px] text-[#7A6A5E]">Keep speaking, keep learning.</p>
+      <svg viewBox="0 0 272 70" preserveAspectRatio="none" fill="none" className="absolute inset-x-0 bottom-0 h-[70px] w-full" aria-hidden>
+        <g stroke="#E8722A" strokeLinecap="round" strokeWidth="2">
+          <path d="M-10 36 C 40 14 92 54 140 34 C 188 14 232 46 282 26" strokeOpacity="0.34" />
+          <path d="M-10 50 C 40 28 92 68 140 48 C 188 28 232 60 282 40" strokeOpacity="0.26" />
+          <path d="M-10 64 C 40 42 92 82 140 62 C 188 42 232 74 282 54" strokeOpacity="0.18" />
+        </g>
+      </svg>
+    </section>
+  );
+}
+
 function MicIcon({ size = 18 }: { size?: number }) {
   return (
     <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="#FFFFFF" strokeWidth="2" strokeLinecap="round" aria-hidden>
@@ -350,6 +459,8 @@ export default async function DashboardPage() {
           <Chevron />
         </Link>
 
+        <ContinueLearningCard suggested={suggested} id="continue-narrow" />
+
         <section>
           <div className="flex items-center">
             <h2 className="flex-1 text-[17px] font-bold tracking-[-0.01em]">Recent Sessions</h2>
@@ -367,6 +478,8 @@ export default async function DashboardPage() {
             <p className="mt-3 text-sm text-[#6F757B]">Your conversations will show up here.</p>
           )}
         </section>
+
+        <MomentumCard />
       </div>
 
       {/* ------------------------------------------------------------ wide */}
@@ -443,68 +556,7 @@ export default async function DashboardPage() {
             </Card>
           </div>
 
-          <Card>
-            <h2 className="text-[17px] font-bold tracking-[-0.01em]">Continue Learning</h2>
-            <p className="mt-1.5 text-sm text-[#6F757B]">
-              Your next session is ready. Keep the momentum going.
-            </p>
-            <div className="relative mt-3.5 h-28 overflow-hidden rounded-[14px]">
-              <svg viewBox="0 0 892 112" preserveAspectRatio="xMidYMid slice" fill="none" className="absolute inset-0 size-full" aria-hidden>
-                <defs>
-                  <linearGradient id="hdCoastSky" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="0" stopColor="#8FC6DC" />
-                    <stop offset="1" stopColor="#CFE3E2" />
-                  </linearGradient>
-                  <linearGradient id="hdSea" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="0" stopColor="#2E7FA6" />
-                    <stop offset="1" stopColor="#1D5D80" />
-                  </linearGradient>
-                  <linearGradient id="hdCoastScrim" x1="0" y1="0" x2="1" y2="0">
-                    <stop offset="0" stopColor="#10222C" stopOpacity="0.80" />
-                    <stop offset="0.52" stopColor="#10222C" stopOpacity="0.18" />
-                    <stop offset="1" stopColor="#10222C" stopOpacity="0.34" />
-                  </linearGradient>
-                </defs>
-                <rect width="892" height="112" fill="url(#hdCoastSky)" />
-                <path d="M0 28 C 90 18 150 34 220 30 L 220 112 L 0 112 Z" fill="#6E8E8C" />
-                <rect y="46" width="892" height="66" fill="url(#hdSea)" />
-                <path d="M250 112 C 268 66 320 44 392 40 C 470 36 540 52 600 44 C 680 34 780 46 892 30 L 892 112 Z" fill="#3E6A46" />
-                <g fill="#E8CBAE">
-                  {[[418, 46, 26, 30], [452, 38, 30, 38], [490, 48, 24, 28], [560, 42, 30, 34], [600, 52, 26, 24], [676, 40, 30, 36], [716, 50, 26, 26], [790, 36, 32, 40]].map(([x, y, w, h]) => (
-                    <rect key={x} x={x} y={y} width={w} height={h} />
-                  ))}
-                </g>
-                <g fill="#B4603C">
-                  {[[416, 42, 30], [450, 34, 34], [488, 44, 28], [558, 38, 34], [598, 48, 30], [674, 36, 34], [714, 46, 30], [788, 32, 36]].map(([x, y, w]) => (
-                    <rect key={x} x={x} y={y} width={w} height="6" />
-                  ))}
-                </g>
-                <path d="M250 112 C 300 96 360 100 420 92 C 500 82 580 96 660 88 C 750 78 830 92 892 84 L 892 112 Z" fill="#2F5637" />
-                <rect width="892" height="112" fill="url(#hdCoastScrim)" />
-              </svg>
-
-              <div className="relative flex h-full items-center gap-6 px-5">
-                <div className="min-w-0 flex-1">
-                  <span className="inline-flex h-[26px] items-center gap-1.5 rounded-full bg-[#10181E]/55 px-3 text-xs font-semibold text-white">
-                    Scenario
-                  </span>
-                  <p className="mt-1.5 text-[22px] font-bold tracking-[-0.02em] text-white">{suggested.label}</p>
-                  <p className="truncate text-[13.5px] text-white/86">{scenarioBlurb(suggested.id)}</p>
-                </div>
-                <form action={startConversation}>
-                  <input type="hidden" name="scenario" value={suggested.id} />
-                  <button
-                    type="submit"
-                    className="flex h-[46px] items-center gap-2.5 rounded-full px-6 text-[15px] font-semibold text-white transition-colors hover:bg-[#B94A13]"
-                    style={{ background: ACCENT }}
-                  >
-                    Start
-                    <Arrow />
-                  </button>
-                </form>
-              </div>
-            </div>
-          </Card>
+          <ContinueLearningCard suggested={suggested} id="continue-wide" />
 
           <div className="grid gap-4 xl:grid-cols-[1.1fr_1fr_0.9fr]">
             {suggestedReview}
@@ -538,28 +590,7 @@ export default async function DashboardPage() {
               </div>
             </Card>
 
-            <section className="relative flex flex-col items-center overflow-hidden rounded-[20px] border border-[#F1DCC6] bg-[#FCEEE0] px-5 pt-7 pb-16 text-center">
-              <svg width="54" height="42" viewBox="0 0 48 48" fill={ACCENT} aria-hidden>
-                <rect x="0" y="17" width="6" height="14" rx="3" />
-                <rect x="10.5" y="9" width="6" height="30" rx="3" />
-                <rect x="21" y="0" width="6" height="48" rx="3" />
-                <rect x="31.5" y="9" width="6" height="30" rx="3" />
-                <rect x="42" y="17.5" width="6" height="13" rx="3" />
-              </svg>
-              <p className="mt-5 text-xl leading-snug font-bold tracking-[-0.02em]">
-                Small steps.
-                <br />
-                <span style={{ color: ACCENT }}>Big conversations.</span>
-              </p>
-              <p className="mt-3 text-[13px] text-[#7A6A5E]">Keep speaking, keep learning.</p>
-              <svg viewBox="0 0 272 70" preserveAspectRatio="none" fill="none" className="absolute inset-x-0 bottom-0 h-[70px] w-full" aria-hidden>
-                <g stroke="#E8722A" strokeLinecap="round" strokeWidth="2">
-                  <path d="M-10 36 C 40 14 92 54 140 34 C 188 14 232 46 282 26" strokeOpacity="0.34" />
-                  <path d="M-10 50 C 40 28 92 68 140 48 C 188 28 232 60 282 40" strokeOpacity="0.26" />
-                  <path d="M-10 64 C 40 42 92 82 140 62 C 188 42 232 74 282 54" strokeOpacity="0.18" />
-                </g>
-              </svg>
-            </section>
+            <MomentumCard />
           </div>
         </div>
 
