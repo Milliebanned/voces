@@ -959,8 +959,8 @@ export function LiveConversation({
         <div className="flex items-center gap-2.5 md:gap-3.5">
           {active &&
             (translatorStatus === "unsupported" ? (
-              <span className="hidden text-[12px] text-white/70 lg:inline">
-                Translations need Chrome
+              <span className="max-w-[110px] text-[11px] leading-tight text-white/70 sm:max-w-none sm:text-[12px]">
+                Translations need Chrome on desktop
               </span>
             ) : (
               <button
