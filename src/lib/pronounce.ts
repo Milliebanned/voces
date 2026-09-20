@@ -16,30 +16,6 @@ export function canPronounce() {
   return typeof window !== "undefined" && "speechSynthesis" in window;
 }
 
-// getVoices() returns an empty list until the browser has finished loading
-// them, which on the very first call is often after this function has
-// already returned — that race, not a missing voice, is why a fresh page
-// load would fall back to whatever the default voice is (typically English)
-// instead of actually finding the French one. voiceschanged fires once
-// they're ready, but some engines never fire it, so this also gives up and
-// uses whatever is available after a short wait rather than hanging forever.
-let voicesReady: Promise<SpeechSynthesisVoice[]> | null = null;
-function loadVoices(): Promise<SpeechSynthesisVoice[]> {
-  if (!canPronounce()) return Promise.resolve([]);
-  const synth = window.speechSynthesis;
-  const existing = synth.getVoices();
-  if (existing.length > 0) return Promise.resolve(existing);
-
-  if (!voicesReady) {
-    voicesReady = new Promise((resolve) => {
-      const finish = () => resolve(synth.getVoices());
-      synth.addEventListener("voiceschanged", finish, { once: true });
-      setTimeout(finish, 300);
-    });
-  }
-  return voicesReady;
-}
-
 // Setting utterance.lang alone doesn't reliably select a matching voice —
 // several browser/OS combinations silently keep the default voice and just
 // read the foreign text with its phonetics, which is exactly what "French"
@@ -54,6 +30,31 @@ function bestVoice(voices: SpeechSynthesisVoice[], locale: string) {
   );
 }
 
+// Chrome commonly returns a first, synchronous getVoices() call that already
+// has some voices in it — often just the local OS ones — before voiceschanged
+// fires with the rest (network voices in particular). A bare "is the list
+// non-empty yet" check was satisfied by that first partial list and never
+// waited for French to actually show up, which is why binding a voice made
+// no difference. This instead checks whether a matching voice specifically
+// is in the list yet, and only waits if it isn't.
+async function findVoice(locale: string): Promise<SpeechSynthesisVoice | null> {
+  if (!canPronounce()) return null;
+  const synth = window.speechSynthesis;
+
+  const tryMatch = () => bestVoice(synth.getVoices(), locale);
+
+  const first = tryMatch();
+  if (first) return first;
+
+  await new Promise<void>((resolve) => {
+    const finish = () => resolve();
+    synth.addEventListener("voiceschanged", finish, { once: true });
+    setTimeout(finish, 500);
+  });
+
+  return tryMatch();
+}
+
 // Web Speech API's synthesis voices, not AssemblyAI: this reads a single
 // saved word aloud on demand, which doesn't need a live agent session or a
 // network round trip, and every major browser ships it built in.
@@ -63,8 +64,16 @@ export async function pronounce(text: string, languageCode: string) {
   if (!trimmed) return null;
 
   const locale = LOCALES[languageCode] ?? languageCode;
-  const voices = await loadVoices();
-  const voice = bestVoice(voices, locale);
+  const voice = await findVoice(locale);
+
+  // Left in permanently, not just for this bug: the only way to tell "no
+  // matching voice exists on this device" apart from "one was found and
+  // bound" is to look, and that distinction is invisible without this line.
+  console.info(
+    `[voces] pronounce "${trimmed}" as ${locale}: ${
+      voice ? `using "${voice.name}" (${voice.lang}, ${voice.localService ? "local" : "network"})` : "no matching voice found on this device — falling back to the default voice"
+    }`,
+  );
 
   // Cancels whatever the last click queued, so a fast double-tap doesn't
   // stack two readings on top of each other.
