@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { PronounceButton } from "./pronounce-button";
 
 export type Flashcard = {
   id: string;
@@ -20,9 +21,11 @@ function strength(score: number) {
 export function Flashcards({
   cards,
   direction,
+  languageCode,
 }: {
   cards: Flashcard[];
   direction: "ltr" | "rtl";
+  languageCode: string;
 }) {
   const [index, setIndex] = useState(0);
   const [flipped, setFlipped] = useState(false);
@@ -38,15 +41,25 @@ export function Flashcards({
 
   return (
     <div className="mt-5 flex flex-col gap-4">
-      <button
-        type="button"
+      <div
+        role="button"
+        tabIndex={0}
         onClick={() => setFlipped((value) => !value)}
         onKeyDown={(event) => {
           if (event.key === "ArrowRight") go(1);
           if (event.key === "ArrowLeft") go(-1);
+          // Only when the card itself has focus: the nested pronounce button
+          // handles its own Enter/Space, and this would otherwise fire twice.
+          if (
+            event.target === event.currentTarget &&
+            (event.key === "Enter" || event.key === " ")
+          ) {
+            event.preventDefault();
+            setFlipped((value) => !value);
+          }
         }}
         aria-label={flipped ? "Show the word" : "Show the meaning"}
-        className="group h-48 w-full perspective-[1200px] outline-none"
+        className="group h-48 w-full cursor-pointer perspective-[1200px] outline-none"
       >
         <div
           className={`relative size-full transition-transform duration-500 transform-3d motion-reduce:transition-none ${
@@ -69,12 +82,15 @@ export function Flashcards({
                 ))}
               </span>
             </div>
-            <p
-              dir={direction}
-              className="flex flex-1 items-center justify-center text-center text-[26px] leading-tight font-bold tracking-[-0.01em]"
-            >
-              {card.text}
-            </p>
+            <div className="flex flex-1 items-center justify-center gap-2.5">
+              <p
+                dir={direction}
+                className="text-center text-[26px] leading-tight font-bold tracking-[-0.01em]"
+              >
+                {card.text}
+              </p>
+              <PronounceButton text={card.text} languageCode={languageCode} size={20} />
+            </div>
             <span className="text-center text-[12px] text-muted">
               Tap to reveal
             </span>
@@ -94,7 +110,7 @@ export function Flashcards({
             )}
           </div>
         </div>
-      </button>
+      </div>
 
       {cards.length > 1 && (
         <div className="flex items-center justify-between">

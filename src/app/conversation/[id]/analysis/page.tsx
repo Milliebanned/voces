@@ -2,6 +2,7 @@ import type { ReactNode } from "react";
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { Landmark } from "@/components/landmarks";
+import { PronounceButton } from "@/components/pronounce-button";
 import type {
   Correction,
   ReachedFor,
@@ -303,7 +304,10 @@ export default async function AnalysisPage({
               {reachedFor.map((word, index) => (
                 <li key={index} className="flex flex-col gap-1 border-b border-[#EAE7DF] py-3 last:border-0">
                   <div className="flex items-baseline justify-between gap-4">
-                    <span dir={direction} className="text-[16px] font-medium">{word.text}</span>
+                    <span className="flex items-center gap-1.5">
+                      <span dir={direction} className="text-[16px] font-medium">{word.text}</span>
+                      <PronounceButton text={word.text} languageCode={session.target_language} />
+                    </span>
                     <span className="text-right text-[14px] text-[#6F757B]">{word.translation}</span>
                   </div>
                   {word.context && (
@@ -326,7 +330,10 @@ export default async function AnalysisPage({
               <li key={index} className="flex items-center justify-between gap-4 border-b border-[#EAE7DF] py-3 last:border-0">
                 <div className="flex flex-col gap-1">
                   <div className="flex flex-wrap items-baseline gap-x-3">
-                    <span dir={direction} className="text-[16px] font-medium">{word.text}</span>
+                    <span className="flex items-center gap-1.5">
+                      <span dir={direction} className="text-[16px] font-medium">{word.text}</span>
+                      <PronounceButton text={word.text} languageCode={session.target_language} />
+                    </span>
                     <span className="text-[14px] text-[#6F757B]">{word.translation}</span>
                   </div>
                   {word.example && (
@@ -349,13 +356,15 @@ export default async function AnalysisPage({
           <h3 className="text-[17px] font-semibold tracking-[-0.01em]">Your saved words</h3>
           <div className="mt-3 flex flex-wrap gap-2" dir={direction}>
             {used.map((word) => (
-              <span key={`used-${word.text}`} className="rounded-full bg-[#FBE6D3] px-3 py-1 text-[13px] font-medium text-[#A84A0C]">
+              <span key={`used-${word.text}`} className="flex items-center gap-1.5 rounded-full bg-[#FBE6D3] px-3 py-1 text-[13px] font-medium text-[#A84A0C]">
                 ✓ {word.text}
+                <PronounceButton text={word.text} languageCode={session.target_language} size={13} />
               </span>
             ))}
             {struggled.map((word) => (
-              <span key={`struggled-${word.text}`} className="rounded-full border border-[#E8E5DC] px-3 py-1 text-[13px] font-medium text-[#6F757B]">
+              <span key={`struggled-${word.text}`} className="flex items-center gap-1.5 rounded-full border border-[#E8E5DC] px-3 py-1 text-[13px] font-medium text-[#6F757B]">
                 {word.text}
+                <PronounceButton text={word.text} languageCode={session.target_language} size={13} />
               </span>
             ))}
           </div>
@@ -389,7 +398,10 @@ export default async function AnalysisPage({
           </div>
           <div dir={direction} className="mt-3 flex flex-col gap-1">
             <p className="text-[15px] text-[#6F757B] line-through decoration-[#6F757B]/60">{correction.original}</p>
-            <p className="text-[16px] font-medium">{correction.corrected}</p>
+            <p className="flex items-center gap-1.5 text-[16px] font-medium">
+              {correction.corrected}
+              <PronounceButton text={correction.corrected} languageCode={session.target_language} />
+            </p>
           </div>
           {correction.explanation && (
             <p className="mt-3 text-[14px] leading-relaxed text-[#6F757B]">{correction.explanation}</p>

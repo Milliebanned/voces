@@ -2,6 +2,7 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { NewConversationLink } from "@/components/new-conversation-link";
 import { Flashcards } from "@/components/flashcards";
+import { PronounceButton } from "@/components/pronounce-button";
 import { Wordmark } from "@/components/wordmark";
 import { languageName, textDirection } from "@/lib/languages";
 import { createClient, currentUser } from "@/lib/supabase/server";
@@ -68,6 +69,7 @@ export default async function VocabularyPage() {
                 .sort((a, b) => a.confidence_score - b.confidence_score)
                 .slice(0, 20)}
               direction={textDirection(profile.target_language)}
+              languageCode={profile.target_language ?? ""}
             />
           </section>
         )}
@@ -105,7 +107,13 @@ export default async function VocabularyPage() {
                 className="flex items-center justify-between gap-4 border-b border-border py-4"
               >
                 <div className="flex flex-col gap-1">
-                  <span className="text-[16px] font-medium">{item.text}</span>
+                  <div className="flex items-center gap-2">
+                    <span className="text-[16px] font-medium">{item.text}</span>
+                    <PronounceButton
+                      text={item.text}
+                      languageCode={profile.target_language ?? ""}
+                    />
+                  </div>
                   {item.translation && (
                     <span className="text-[14px] text-muted">
                       {item.translation}
