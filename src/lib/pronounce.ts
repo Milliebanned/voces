@@ -55,6 +55,14 @@ async function findVoice(locale: string): Promise<SpeechSynthesisVoice | null> {
   return tryMatch();
 }
 
+// Chrome's speechSynthesis doesn't keep its own strong reference to a queued
+// utterance, so one with nothing else holding onto it is eligible for
+// garbage collection while it's still being spoken — heard as the voice
+// getting cut off or dissolving into a stretched, garbled sound partway
+// through a word. Holding it here until it actually finishes is the
+// documented workaround.
+let liveUtterance: SpeechSynthesisUtterance | null = null;
+
 // Web Speech API's synthesis voices, not AssemblyAI: this reads a single
 // saved word aloud on demand, which doesn't need a live agent session or a
 // network round trip, and every major browser ships it built in.
@@ -82,6 +90,12 @@ export async function pronounce(text: string, languageCode: string) {
   utterance.lang = voice?.lang ?? locale;
   if (voice) utterance.voice = voice;
   utterance.rate = 0.85;
+  const release = () => {
+    if (liveUtterance === utterance) liveUtterance = null;
+  };
+  utterance.addEventListener("end", release);
+  utterance.addEventListener("error", release);
+  liveUtterance = utterance;
   window.speechSynthesis.speak(utterance);
   return utterance;
 }
