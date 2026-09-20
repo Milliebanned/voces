@@ -22,8 +22,15 @@ function credentials(formData: FormData) {
 // Redirect URLs in the dashboard, otherwise it silently falls back to Site URL.
 async function confirmRedirectUrl() {
   const list = await headers();
-  const proto = list.get("x-forwarded-proto") ?? "https";
   const host = list.get("x-forwarded-host") ?? list.get("host");
+  // Plain `npm run dev` sets neither header nor puts itself behind a proxy,
+  // so there's no x-forwarded-proto to read — defaulting to https built a
+  // link Supabase would never match against a localhost entry.
+  const proto =
+    list.get("x-forwarded-proto") ??
+    (host?.startsWith("localhost") || host?.startsWith("127.0.0.1")
+      ? "http"
+      : "https");
   return `${proto}://${host}/auth/confirm`;
 }
 
