@@ -23,10 +23,10 @@
 // - a gap inside a reply is never waited on. The block runs to silence and the
 //   next sample to arrive plays immediately, so a stall of 200 ms costs 200 ms
 //   and nothing more.
-const START_CUSHION_SECONDS = 0.35;
+const START_CUSHION_SECONDS = 0.5;
 const MAX_START_CUSHION_SECONDS = 1;
 // Headroom so a reply slightly worse than the last one does not break through.
-const START_MARGIN_SECONDS = 0.1;
+const START_MARGIN_SECONDS = 0.15;
 // Every cushioned millisecond is a millisecond before the agent answers, so a
 // reply that played through clean hands a little of it back.
 const CUSHION_RELAX_SECONDS = 0.05;
