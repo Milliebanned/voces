@@ -56,6 +56,7 @@ npm run dev
 | `ANALYSIS_MODEL` | Optional. [LLM Gateway model](https://www.assemblyai.com/docs/llm-gateway/available-models) for the post-session review; defaults to `qwen3.5-4b-32k-fast` |
 | `NEXT_PUBLIC_SUPABASE_URL` | Supabase project settings → API |
 | `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` | Supabase project settings → API Keys → publishable key |
+| `SUPABASE_SECRET_KEY` | Supabase project settings → API Keys → secret key — server-side only, never expose |
 
 The app runs at `http://localhost:3000`.
 
