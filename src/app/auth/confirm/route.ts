@@ -7,7 +7,6 @@ export async function GET(request: NextRequest) {
   const { searchParams, origin } = new URL(request.url);
   const tokenHash = searchParams.get("token_hash");
   const type = searchParams.get("type") as EmailOtpType | null;
-  const next = searchParams.get("next") ?? "/onboarding";
 
   if (tokenHash && type) {
     const supabase = await createClient();
@@ -17,7 +16,10 @@ export async function GET(request: NextRequest) {
     });
 
     if (!error) {
-      return NextResponse.redirect(new URL(next, origin));
+      // verifyOtp signs them in, but the confirmation page sends them to log
+      // in on purpose, so that page's "Log in" link means what it says.
+      await supabase.auth.signOut();
+      return NextResponse.redirect(new URL("/auth/confirmed", origin));
     }
   }
 
