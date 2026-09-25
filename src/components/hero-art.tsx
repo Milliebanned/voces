@@ -1,4 +1,3 @@
-import type { CSSProperties } from "react";
 import { Landmark } from "@/components/landmarks";
 
 // The landing hero's sunset: a striped sun with rings of sound, the six
@@ -15,9 +14,8 @@ type Greeting = [
   filled: boolean,
 ];
 
-const PALE = { color: "#F6C9A4", lit: "#FFF0E2" };
-const MID = { color: "#F2B283", lit: "#FFE7D2" };
-const NEAR = { color: "#D9601C", lit: "#FFD2A8" };
+// Each depth has a day tone and a night one, set in globals.css.
+type Tone = "pale" | "mid" | "near";
 
 // Horizontal bands cut from the lower sun, as fractions of its radius.
 const STRIPES = [
@@ -27,17 +25,9 @@ const STRIPES = [
   [0.43, 0.08],
 ];
 
-function Skyline({ tone, marks }: { tone: typeof PALE; marks: Mark[] }) {
+function Skyline({ tone, marks }: { tone: Tone; marks: Mark[] }) {
   return (
-    <g
-      className="silhouette"
-      style={
-        {
-          "--silhouette": tone.color,
-          "--silhouette-lit": tone.lit,
-        } as CSSProperties
-      }
-    >
+    <g className={`silhouette silhouette-${tone}`}>
       {marks.map(([code, x, baseline, scale]) => (
         <Landmark
           key={`${code}-${x}`}
@@ -70,6 +60,14 @@ function Sun({
           <stop offset="0.5" stopColor="#F4A265" />
           <stop offset="1" stopColor="#E8692A" />
         </linearGradient>
+        <radialGradient id={`${id}-moon`} cx="0.4" cy="0.36" r="0.7">
+          <stop offset="0" stopColor="#FFF8EC" />
+          <stop offset="1" stopColor="#E8D6BB" />
+        </radialGradient>
+        <radialGradient id={`${id}-halo`}>
+          <stop offset="0.55" stopColor="#FFE9C9" stopOpacity="0.18" />
+          <stop offset="1" stopColor="#FFE9C9" stopOpacity="0" />
+        </radialGradient>
         <mask id={`${id}-cut`}>
           <rect
             x={cx - r}
@@ -119,7 +117,19 @@ function Sun({
         r={r}
         fill={`url(#${id}-fill)`}
         mask={`url(#${id}-cut)`}
+        className="dark:hidden"
       />
+      {/* By night the sun is a moon: smaller, softly haloed, with craters. */}
+      <g className="hidden dark:inline">
+        <circle cx={cx} cy={cy} r={r * 1.05} fill={`url(#${id}-halo)`} />
+        <circle cx={cx} cy={cy} r={r * 0.62} fill={`url(#${id}-moon)`} />
+        <g fill="#D9C6A8" fillOpacity="0.45">
+          <circle cx={cx - r * 0.2} cy={cy - r * 0.18} r={r * 0.1} />
+          <circle cx={cx + r * 0.22} cy={cy + r * 0.05} r={r * 0.07} />
+          <circle cx={cx - r * 0.05} cy={cy + r * 0.28} r={r * 0.055} />
+          <circle cx={cx + r * 0.12} cy={cy - r * 0.34} r={r * 0.04} />
+        </g>
+      </g>
     </>
   );
 }
@@ -132,22 +142,25 @@ function Bubble({
   size: number;
 }) {
   const width = text.length * 7.6 + 26;
-  const background = filled ? "#EA742A" : "#FFFFFF";
+  // Plain bubbles are white by day and dusk-violet by night.
+  const surface = filled ? "fill-[#EA742A]" : "fill-white dark:fill-[#2A2538]";
   // Filled bubbles are the partner's replies, so their tails sit on the right.
   const tail = filled
     ? `M${width - 14} 28 l2 10 l-12 -10 z`
     : "M14 28 l-2 10 l12 -10 z";
   return (
     <g transform={`translate(${x} ${y}) scale(${size})`}>
-      <rect width={width} height="30" rx="15" fill={background} />
-      <path d={tail} fill={background} />
+      <rect width={width} height="30" rx="15" className={surface} />
+      <path d={tail} className={surface} />
       <text
         x={width / 2}
         y="19.5"
         textAnchor="middle"
         fontSize="12.5"
         fontWeight="600"
-        fill={filled ? "#FFFFFF" : "#D9601C"}
+        className={
+          filled ? "fill-white" : "fill-[#D9601C] dark:fill-[#F4A265]"
+        }
         lang={lang}
       >
         {text}
@@ -157,11 +170,16 @@ function Bubble({
 }
 
 function Waves({ paths }: { paths: string[] }) {
-  const fills = ["#F6D7B7", "#E97C2A", "#DF641E"];
+  // Peach to deep orange by day; by night dark hills with an ember front.
+  const fills = [
+    "fill-[#F6D7B7] dark:fill-[#2B2437]",
+    "fill-[#E97C2A] dark:fill-[#5E2A1E]",
+    "fill-[#DF641E] dark:fill-[#C24E1A]",
+  ];
   return (
     <>
       {paths.map((d, i) => (
-        <path key={i} d={d} fill={fills[i]} />
+        <path key={i} d={d} className={fills[i]} />
       ))}
     </>
   );
@@ -264,9 +282,9 @@ export function HeroArt({
       </defs>
       <g mask={`url(#hero-edge-${variant})`}>
         <Sun id={`hero-sun-${variant}`} {...board.sun} />
-        <Skyline tone={PALE} marks={board.pale} />
-        <Skyline tone={MID} marks={board.mid} />
-        <Skyline tone={NEAR} marks={board.near} />
+        <Skyline tone="pale" marks={board.pale} />
+        <Skyline tone="mid" marks={board.mid} />
+        <Skyline tone="near" marks={board.near} />
         {board.greetings.map((greeting) => (
           <Bubble
             key={greeting[0]}

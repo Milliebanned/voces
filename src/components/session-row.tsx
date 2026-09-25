@@ -1,5 +1,5 @@
 import Link from "next/link";
-import type { ReactNode } from "react";
+import type { CSSProperties, ReactNode } from "react";
 import { DeleteSessionButton } from "@/components/delete-session-button";
 import type { SessionSummary } from "@/lib/progress";
 import { scenarioLabel } from "@/lib/scenarios";
@@ -91,9 +91,11 @@ export function ScenarioIcon({ scenario, size = 44 }: { scenario: string | null;
   const { tint, ink, icon } =
     SCENARIO_ICONS[scenario ?? "free"] ?? SCENARIO_ICONS.free;
   return (
+    // By night the pastel tile would glare, so it is mixed from the icon's
+    // own colour instead.
     <span
-      className="grid shrink-0 place-items-center rounded-xl"
-      style={{ width: size, height: size, background: tint }}
+      className="grid shrink-0 place-items-center rounded-xl bg-(--tile) dark:bg-[color-mix(in_srgb,var(--tile-ink)_22%,transparent)]"
+      style={{ width: size, height: size, "--tile": tint, "--tile-ink": ink } as CSSProperties}
     >
       <svg width={size * 0.45} height={size * 0.45} viewBox="0 0 24 24" fill="none" stroke={ink} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
         {icon}
@@ -114,17 +116,17 @@ function Badge({ corrections }: { corrections: number | null }) {
   // More than a couple of corrections means the review is worth reading.
   if (corrections === null) {
     return (
-      <span className="shrink-0 rounded-full bg-[#EFEEEB] px-2.5 py-1 text-[11px] font-semibold text-[#5A5F66]">
+      <span className="shrink-0 rounded-full bg-card-2 px-2.5 py-1 text-[11px] font-semibold text-ink-2">
         Not reviewed
       </span>
     );
   }
   return corrections > 2 ? (
-    <span className="shrink-0 rounded-full bg-[#FBE8D8] px-2.5 py-1 text-[11px] font-semibold text-[#A84A0C]">
+    <span className="shrink-0 rounded-full bg-tint px-2.5 py-1 text-[11px] font-semibold text-tint-ink">
       Needs review
     </span>
   ) : (
-    <span className="shrink-0 rounded-full bg-[#E4F2E2] px-2.5 py-1 text-[11px] font-semibold text-[#237A4B]">
+    <span className="shrink-0 rounded-full bg-ok px-2.5 py-1 text-[11px] font-semibold text-ok-ink">
       Good
     </span>
   );
@@ -149,10 +151,10 @@ export function SessionRow({
       >
         <ScenarioIcon scenario={session.scenario} size={compact ? 38 : 44} />
         <span className="flex min-w-0 flex-1 flex-col gap-0.5">
-          <span className="truncate text-[13.5px] font-semibold text-[#23252A] group-hover:text-[#DA5C1B]">
+          <span className="truncate text-[13.5px] font-semibold text-ink group-hover:text-[#DA5C1B]">
             {scenarioLabel(session.scenario) ?? "Free conversation"}
           </span>
-          <span className="text-[11.5px] text-[#6F757B]">
+          <span className="text-[11.5px] text-mute">
             {when(session.startedAt)}
             {!compact && ` · ${languageLabel}`}
             {session.minutes > 0 && ` · ${session.minutes} min`}

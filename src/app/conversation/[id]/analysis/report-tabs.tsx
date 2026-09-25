@@ -11,7 +11,7 @@ export function ReportTabs({ tabs }: { tabs: ReportTab[] }) {
 
   return (
     <div id="report" className="scroll-mt-6">
-      <div role="tablist" aria-label="Session report" className="flex gap-7 overflow-x-auto border-b border-[#E5E2DA] sm:gap-11">
+      <div role="tablist" aria-label="Session report" className="flex gap-7 overflow-x-auto border-b border-line sm:gap-11">
         {tabs.map((tab) => {
           const selected = tab.id === active;
           return (
@@ -25,8 +25,8 @@ export function ReportTabs({ tabs }: { tabs: ReportTab[] }) {
               onClick={() => setActive(tab.id)}
               className={`relative shrink-0 pb-3.5 text-[14px] transition-colors sm:text-[15.5px] ${
                 selected
-                  ? "font-semibold text-[#C4541A]"
-                  : "font-medium text-[#6F757B] hover:text-[#23252A]"
+                  ? "font-semibold text-tint-ink"
+                  : "font-medium text-mute hover:text-ink"
               }`}
             >
               {tab.label}

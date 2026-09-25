@@ -1,4 +1,4 @@
-import type { ReactNode } from "react";
+import type { CSSProperties, ReactNode } from "react";
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { Landmark } from "@/components/landmarks";
@@ -44,8 +44,22 @@ function Ring({
   const filled = percent === null ? 0 : (circumference * Math.min(100, percent)) / 100;
   return (
     <span className="relative block size-[88px] shrink-0 sm:size-[132px]">
-      <svg viewBox="0 0 88 88" className="size-full" aria-hidden>
-        <circle cx="44" cy="44" r={r} fill="none" stroke={track} strokeWidth="7" />
+      {/* By night the pastel track would glare, so it is mixed from the
+          ring's own colour instead. */}
+      <svg
+        viewBox="0 0 88 88"
+        className="size-full"
+        style={{ "--track": track, "--ring": color } as CSSProperties}
+        aria-hidden
+      >
+        <circle
+          cx="44"
+          cy="44"
+          r={r}
+          fill="none"
+          strokeWidth="7"
+          className="stroke-(--track) dark:stroke-[color-mix(in_srgb,var(--ring)_26%,transparent)]"
+        />
         {filled > 0 && (
           <circle
             cx="44"
@@ -80,9 +94,9 @@ function ScoreCard({
   children: ReactNode;
 }) {
   return (
-    <div className="flex flex-1 flex-col items-center rounded-2xl border border-[#E8E5DC] bg-[#FCFBF7] px-2 pt-3.5 pb-4 text-center sm:rounded-[18px] sm:pt-[22px] sm:pb-6">
+    <div className="flex flex-1 flex-col items-center rounded-2xl border border-line bg-card px-2 pt-3.5 pb-4 text-center sm:rounded-[18px] sm:pt-[22px] sm:pb-6">
       <span className="text-[14px] font-semibold sm:text-[17px]">{title}</span>
-      <span className="mt-0.5 min-h-[2lh] text-[11.5px] leading-tight text-[#6F757B] sm:mt-1 sm:min-h-0 sm:text-[14px]">
+      <span className="mt-0.5 min-h-[2lh] text-[11.5px] leading-tight text-mute sm:mt-1 sm:min-h-0 sm:text-[14px]">
         {caption}
       </span>
       <span className="mt-2.5 sm:mt-4">{children}</span>
@@ -92,15 +106,15 @@ function ScoreCard({
 
 function Takeaway({ icon, title, body }: { icon: ReactNode; title: string; body: string }) {
   return (
-    <div className="flex flex-1 items-center gap-3.5 rounded-[14px] border border-[#E8E5DC] bg-[#FCFBF7] px-3.5 py-3 sm:flex-col sm:items-start sm:gap-3 sm:rounded-2xl sm:p-5">
-      <span className="grid size-9 shrink-0 place-items-center rounded-[11px] bg-[#FBE6D3] sm:size-11 sm:rounded-[13px]">
+    <div className="flex flex-1 items-center gap-3.5 rounded-[14px] border border-line bg-card px-3.5 py-3 sm:flex-col sm:items-start sm:gap-3 sm:rounded-2xl sm:p-5">
+      <span className="grid size-9 shrink-0 place-items-center rounded-[11px] bg-tint sm:size-11 sm:rounded-[13px]">
         <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke={ACCENT} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
           {icon}
         </svg>
       </span>
       <span className="flex flex-col gap-1">
         <span className="text-[14px] font-semibold sm:text-[16px]">{title}</span>
-        <span className="text-[12.5px] leading-snug text-[#6F757B] sm:text-[13.5px]">{body}</span>
+        <span className="text-[12.5px] leading-snug text-mute sm:text-[13.5px]">{body}</span>
       </span>
     </div>
   );
@@ -206,7 +220,7 @@ export default async function AnalysisPage({
   const topCategory = [...categories.entries()].sort((a, b) => b[1] - a[1])[0]?.[0];
 
   const empty = (text: string) => (
-    <p className="text-[14px] leading-relaxed text-[#6F757B]">{text}</p>
+    <p className="text-[14px] leading-relaxed text-mute">{text}</p>
   );
 
   const reviewPending = !analysis && spokenTurns > 0;
@@ -217,18 +231,18 @@ export default async function AnalysisPage({
     empty("Nothing was said in this one, so there is nothing to review.")
   ) : (
     <div className="flex flex-col gap-6">
-      <div className="rounded-2xl border border-[#E8E5DC] bg-[#FCFBF7] p-5 sm:p-6">
+      <div className="rounded-2xl border border-line bg-card p-5 sm:p-6">
         {analysis.summary_text && (
           <p className="text-[15px] leading-relaxed">{analysis.summary_text}</p>
         )}
         {analysis.strengths && (
-          <p className="mt-4 text-[14px] leading-relaxed text-[#6F757B]">
-            <span className="font-semibold text-[#23252A]">Went well: </span>
+          <p className="mt-4 text-[14px] leading-relaxed text-mute">
+            <span className="font-semibold text-ink">Went well: </span>
             {analysis.strengths}
           </p>
         )}
         {fluencyNotes.length > 0 && (
-          <ul className="mt-4 flex list-disc flex-col gap-1 pl-5 text-[14px] leading-relaxed text-[#6F757B]">
+          <ul className="mt-4 flex list-disc flex-col gap-1 pl-5 text-[14px] leading-relaxed text-mute">
             {fluencyNotes.map((note, index) => (
               <li key={index}>{note}</li>
             ))}
@@ -293,7 +307,7 @@ export default async function AnalysisPage({
         <h3 className="text-[17px] font-semibold tracking-[-0.01em]">Words you reached for</h3>
         {reachedFor.length > 0 ? (
           <>
-            <p className="mt-1.5 text-[14px] text-[#6F757B]">
+            <p className="mt-1.5 text-[14px] text-mute">
               Added to your{" "}
               <Link href="/vocabulary" className="hover:underline" style={{ color: ACCENT }}>
                 vocabulary
@@ -302,23 +316,23 @@ export default async function AnalysisPage({
             </p>
             <ul className="mt-3 flex flex-col">
               {reachedFor.map((word, index) => (
-                <li key={index} className="flex flex-col gap-1 border-b border-[#EAE7DF] py-3 last:border-0">
+                <li key={index} className="flex flex-col gap-1 border-b border-line py-3 last:border-0">
                   <div className="flex items-baseline justify-between gap-4">
                     <span className="flex items-center gap-1.5">
                       <span dir={direction} className="text-[16px] font-medium">{word.text}</span>
                       <PronounceButton text={word.text} languageCode={session.target_language} />
                     </span>
-                    <span className="text-right text-[14px] text-[#6F757B]">{word.translation}</span>
+                    <span className="text-right text-[14px] text-mute">{word.translation}</span>
                   </div>
                   {word.context && (
-                    <span dir="auto" className="text-[13px] text-[#6F757B] italic">&ldquo;{word.context}&rdquo;</span>
+                    <span dir="auto" className="text-[13px] text-mute italic">&ldquo;{word.context}&rdquo;</span>
                   )}
                 </li>
               ))}
             </ul>
           </>
         ) : (
-          <p className="mt-1.5 text-[14px] text-[#6F757B]">None this time.</p>
+          <p className="mt-1.5 text-[14px] text-mute">None this time.</p>
         )}
       </section>
 
@@ -327,17 +341,17 @@ export default async function AnalysisPage({
           <h3 className="text-[17px] font-semibold tracking-[-0.01em]">Worth adding</h3>
           <ul className="mt-3 flex flex-col">
             {suggestions.map((word, index) => (
-              <li key={index} className="flex items-center justify-between gap-4 border-b border-[#EAE7DF] py-3 last:border-0">
+              <li key={index} className="flex items-center justify-between gap-4 border-b border-line py-3 last:border-0">
                 <div className="flex flex-col gap-1">
                   <div className="flex flex-wrap items-baseline gap-x-3">
                     <span className="flex items-center gap-1.5">
                       <span dir={direction} className="text-[16px] font-medium">{word.text}</span>
                       <PronounceButton text={word.text} languageCode={session.target_language} />
                     </span>
-                    <span className="text-[14px] text-[#6F757B]">{word.translation}</span>
+                    <span className="text-[14px] text-mute">{word.translation}</span>
                   </div>
                   {word.example && (
-                    <span dir={direction} className="text-[13px] text-[#6F757B]">{word.example}</span>
+                    <span dir={direction} className="text-[13px] text-mute">{word.example}</span>
                   )}
                 </div>
                 <SaveWordButton
@@ -356,20 +370,20 @@ export default async function AnalysisPage({
           <h3 className="text-[17px] font-semibold tracking-[-0.01em]">Your saved words</h3>
           <div className="mt-3 flex flex-wrap gap-2" dir={direction}>
             {used.map((word) => (
-              <span key={`used-${word.text}`} className="flex items-center gap-1.5 rounded-full bg-[#FBE6D3] px-3 py-1 text-[13px] font-medium text-[#A84A0C]">
+              <span key={`used-${word.text}`} className="flex items-center gap-1.5 rounded-full bg-tint px-3 py-1 text-[13px] font-medium text-tint-ink">
                 ✓ {word.text}
                 <PronounceButton text={word.text} languageCode={session.target_language} size={13} />
               </span>
             ))}
             {struggled.map((word) => (
-              <span key={`struggled-${word.text}`} className="flex items-center gap-1.5 rounded-full border border-[#E8E5DC] px-3 py-1 text-[13px] font-medium text-[#6F757B]">
+              <span key={`struggled-${word.text}`} className="flex items-center gap-1.5 rounded-full border border-line px-3 py-1 text-[13px] font-medium text-mute">
                 {word.text}
                 <PronounceButton text={word.text} languageCode={session.target_language} size={13} />
               </span>
             ))}
           </div>
           {struggled.length > 0 && (
-            <p className="mt-3 text-[13px] text-[#6F757B]">
+            <p className="mt-3 text-[13px] text-mute">
               Outlined words were tricky this time; they&apos;ll come up again.
             </p>
           )}
@@ -383,28 +397,28 @@ export default async function AnalysisPage({
   ) : corrections.length > 0 ? (
     <ul className="flex flex-col gap-4">
       {corrections.map((correction, index) => (
-        <li key={index} className="rounded-2xl border border-[#E8E5DC] bg-[#FCFBF7] p-5">
+        <li key={index} className="rounded-2xl border border-line bg-card p-5">
           <div className="flex flex-wrap items-center gap-2">
             {correction.category && (
-              <span className="text-[11px] font-semibold tracking-wide text-[#6F757B] uppercase">
+              <span className="text-[11px] font-semibold tracking-wide text-mute uppercase">
                 {correction.category}
               </span>
             )}
             {correction.recurring && (
-              <span className="rounded-full bg-[#FBE6D3] px-2.5 py-0.5 text-[11px] font-semibold text-[#A84A0C]">
+              <span className="rounded-full bg-tint px-2.5 py-0.5 text-[11px] font-semibold text-tint-ink">
                 Came up before
               </span>
             )}
           </div>
           <div dir={direction} className="mt-3 flex flex-col gap-1">
-            <p className="text-[15px] text-[#6F757B] line-through decoration-[#6F757B]/60">{correction.original}</p>
+            <p className="text-[15px] text-mute line-through decoration-mute/60">{correction.original}</p>
             <p className="flex items-center gap-1.5 text-[16px] font-medium">
               {correction.corrected}
               <PronounceButton text={correction.corrected} languageCode={session.target_language} />
             </p>
           </div>
           {correction.explanation && (
-            <p className="mt-3 text-[14px] leading-relaxed text-[#6F757B]">{correction.explanation}</p>
+            <p className="mt-3 text-[14px] leading-relaxed text-mute">{correction.explanation}</p>
           )}
         </li>
       ))}
@@ -418,10 +432,10 @@ export default async function AnalysisPage({
       <div className="flex flex-col gap-4" dir={direction}>
         {transcript.map((turn, index) =>
           turn.role === "agent" ? (
-            <div key={index} className="max-w-[85%] self-start rounded-[20px_20px_20px_5px] border border-[#E8E5DC] bg-[#FCFBF7] px-4 py-3">
+            <div key={index} className="max-w-[85%] self-start rounded-[20px_20px_20px_5px] border border-line bg-card px-4 py-3">
               <p className="text-[15px] leading-relaxed">{turn.text}</p>
               {turn.translation && (
-                <p dir="auto" className="mt-1 text-[13px] leading-relaxed text-[#6F757B]">{turn.translation}</p>
+                <p dir="auto" className="mt-1 text-[13px] leading-relaxed text-mute">{turn.translation}</p>
               )}
             </div>
           ) : (
@@ -439,7 +453,7 @@ export default async function AnalysisPage({
     );
 
   return (
-    <main className="flex-1 bg-[#F6F5F0] text-[#23252A]">
+    <main className="flex-1 bg-canvas text-ink">
       <header className="mx-auto flex h-[76px] w-full max-w-[1040px] items-center justify-between px-5 sm:px-10">
         <Link href="/dashboard" aria-label="VOCES home" className="flex items-center gap-2">
           <svg width="26" height="26" viewBox="0 0 48 48" fill={ACCENT} aria-hidden>
@@ -462,9 +476,9 @@ export default async function AnalysisPage({
           <Link
             href="/dashboard"
             aria-label="Close summary"
-            className="grid size-10 place-items-center rounded-full border border-[#E8E5DC] bg-[#FCFBF7] transition-colors hover:border-[#DE5E1C]/50"
+            className="grid size-10 place-items-center rounded-full border border-line bg-card transition-colors hover:border-[#DE5E1C]/50"
           >
-            <svg width="15" height="15" viewBox="0 0 14 14" fill="none" stroke="#6C727A" strokeWidth="1.8" strokeLinecap="round" aria-hidden>
+            <svg width="15" height="15" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" className="text-mute" aria-hidden>
               <path d="M2.4 2.4 L11.6 11.6" />
               <path d="M11.6 2.4 L2.4 11.6" />
             </svg>
@@ -483,7 +497,7 @@ export default async function AnalysisPage({
             <h1 className="text-[22px] font-bold tracking-[-0.02em] sm:text-[34px]">
               {spokenTurns > 0 ? "Session Complete" : "That one stayed quiet"}
             </h1>
-            <p className="mt-1 text-[13.5px] text-[#6F757B] sm:mt-2 sm:text-base">
+            <p className="mt-1 text-[13.5px] text-mute sm:mt-2 sm:text-base">
               {spokenTurns > 0
                 ? "Great job! Here's your session summary."
                 : "Nothing was said, so there's no review this time."}
@@ -504,14 +518,14 @@ export default async function AnalysisPage({
           )}
         </div>
 
-        <div className="flex flex-col gap-3 rounded-2xl border border-[#E8E5DC] bg-[#FCFBF7] p-3.5 sm:rounded-[18px] sm:p-5">
+        <div className="flex flex-col gap-3 rounded-2xl border border-line bg-card p-3.5 sm:rounded-[18px] sm:p-5">
           <div className="flex items-center gap-3.5 sm:gap-[18px]">
             <SessionThumb code={session.target_language} />
             <div className="flex flex-col gap-1.5">
               <span className="text-base font-semibold tracking-[-0.01em] sm:text-xl">
                 {scenarioLabel(session.scenario) ?? "Free conversation"}
               </span>
-              <span className="text-[13px] text-[#6F757B] sm:text-[14.5px]">
+              <span className="text-[13px] text-mute sm:text-[14.5px]">
                 {minutes ? `${minutes} min · ` : ""}
                 {language}
               </span>

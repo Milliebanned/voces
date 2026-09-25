@@ -36,7 +36,7 @@ export default async function ConversationsPage() {
           <div className="flex flex-wrap items-center gap-4">
             <div className="flex-1">
               <h1 className="text-[26px] font-bold tracking-[-0.02em]">Conversations</h1>
-              <p className="mt-1 text-sm text-[#6F757B]">
+              <p className="mt-1 text-sm text-mute">
                 Every {language} conversation you&apos;ve had, with its recording
                 and review.
               </p>
@@ -57,7 +57,7 @@ export default async function ConversationsPage() {
               ))}
             </ul>
           ) : (
-            <p className="mt-6 text-sm text-[#6F757B]">
+            <p className="mt-6 text-sm text-mute">
               No conversations yet. Start one and it will show up here.
             </p>
           )}

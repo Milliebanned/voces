@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
+import { ThemeToggle } from "@/components/theme-toggle";
 
 const LINKS = [
   { href: "#top", label: "Home" },
@@ -41,7 +42,7 @@ export function MobileMenu() {
         aria-controls="mobile-menu"
         aria-label={open ? "Close menu" : "Open menu"}
         onClick={() => setOpen((value) => !value)}
-        className="grid size-11 place-items-center rounded-full border border-[#ECE1D5] bg-white/80 text-[#22262B]"
+        className="grid size-11 place-items-center rounded-full border border-line bg-card/80 text-ink"
       >
         <svg width="18" height="18" viewBox="0 0 18 18" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" aria-hidden>
           {open ? (
@@ -56,7 +57,7 @@ export function MobileMenu() {
         <nav
           id="mobile-menu"
           aria-label="Main"
-          className="absolute inset-x-4 top-full z-30 mt-1 rounded-[26px] border border-[#ECE1D5] bg-[#FFFDFB] p-2 shadow-[0_24px_48px_rgba(62,34,12,0.16)]"
+          className="absolute inset-x-4 top-full z-30 mt-1 rounded-[26px] border border-line bg-card p-2 shadow-[0_24px_48px_rgba(62,34,12,0.16)]"
         >
           <ul className="flex flex-col">
             {LINKS.map((link) => (
@@ -65,7 +66,7 @@ export function MobileMenu() {
                   href={link.href}
                   {...(link.external ? { target: "_blank", rel: "noopener" } : {})}
                   onClick={() => setOpen(false)}
-                  className="flex h-14 items-center justify-between rounded-2xl px-5 text-[17px] font-semibold text-[#22262B] active:bg-[#FBE6D3]"
+                  className="flex h-14 items-center justify-between rounded-2xl px-5 text-[17px] font-semibold text-ink active:bg-tint"
                 >
                   {link.label}
                   <svg width="8" height="14" viewBox="0 0 8 14" fill="none" stroke="#ED6A28" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
@@ -78,11 +79,16 @@ export function MobileMenu() {
           <Link
             href="/login"
             onClick={() => setOpen(false)}
-            className="mt-1 flex h-14 items-center justify-center rounded-2xl border-t border-[#F1E8DD] text-[17px] font-semibold"
+            className="mt-1 flex h-14 items-center justify-center rounded-2xl border-t border-line text-[17px] font-semibold"
             style={{ color: "#D9601C" }}
           >
             Sign in
           </Link>
+          {/* The header has no room for the switch at phone width. */}
+          <div className="mt-1 flex h-14 items-center justify-between rounded-2xl border-t border-line pr-2 pl-5">
+            <span className="text-[15px] font-semibold text-ink">Appearance</span>
+            <ThemeToggle className="size-10" />
+          </div>
         </nav>
       )}
     </div>

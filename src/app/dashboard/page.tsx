@@ -12,7 +12,9 @@ import {
 } from "@/components/app-shell";
 import { Flag } from "@/components/flag";
 import { Landmark } from "@/components/landmarks";
+import { Stars } from "@/components/night-sky";
 import { SessionRow } from "@/components/session-row";
+import { ThemeToggle } from "@/components/theme-toggle";
 import { languageName } from "@/lib/languages";
 import { GETTING_THERE, loadProgress } from "@/lib/progress";
 import { SCENARIOS, scenarioBlurb } from "@/lib/scenarios";
@@ -46,6 +48,12 @@ function HeroScene({ code, id }: { code: string; id: string }) {
           <stop offset="0.84" stopColor="#8A4A22" />
           <stop offset="1" stopColor="#2A1B12" />
         </linearGradient>
+        <linearGradient id={`${id}-night`} x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0" stopColor="#0B0E1C" />
+          <stop offset="0.45" stopColor="#1B1B36" />
+          <stop offset="0.72" stopColor="#3B2636" />
+          <stop offset="1" stopColor="#1A120E" />
+        </linearGradient>
         <linearGradient id={`${id}-left`} x1="0" y1="0" x2="1" y2="0">
           <stop offset="0" stopColor="#1A1109" stopOpacity="0.86" />
           <stop offset="0.5" stopColor="#1A1109" stopOpacity="0.42" />
@@ -57,6 +65,14 @@ function HeroScene({ code, id }: { code: string; id: string }) {
         <ellipse cx="300" cy="52" rx="300" ry="12" />
         <ellipse cx="760" cy="92" rx="250" ry="10" />
         <ellipse cx="420" cy="128" rx="280" ry="11" />
+      </g>
+      {/* By night the dusk gives way to a starry sky over the same city. */}
+      <g className="hidden dark:inline">
+        <rect width="936" height="288" fill={`url(#${id}-night)`} />
+        <circle cx="560" cy="62" r="20" fill="#F6E7D2" />
+        {/* A crescent: the moon with the night sky's own colour bitten out. */}
+        <circle cx="552" cy="56" r="19" fill="#11132A" />
+        <Stars width={936} height={200} count={70} seed={target.length * 17 + 3} />
       </g>
       <g style={{ filter: "brightness(0.45)" }}>
         <Landmark code={target} x={640} baseline={262} scale={0.6} />
@@ -116,6 +132,10 @@ function CoastScene({ id }: { id: string }) {
         ))}
       </g>
       <path d="M250 112 C 300 96 360 100 420 92 C 500 82 580 96 660 88 C 750 78 830 92 892 84 L 892 112 Z" fill="#2F5637" />
+      <g className="hidden dark:inline">
+        <rect width="892" height="112" fill="#0B1024" fillOpacity="0.6" />
+        <Stars width={892} height={44} count={24} seed={11} />
+      </g>
       <rect width="892" height="112" fill={`url(#${id}-scrim)`} />
     </svg>
   );
@@ -131,7 +151,7 @@ function ContinueLearningCard({
   return (
     <Card>
       <h2 className="text-[17px] font-bold tracking-[-0.01em]">Continue Learning</h2>
-      <p className="mt-1.5 text-sm text-[#6F757B]">
+      <p className="mt-1.5 text-sm text-mute">
         Your next session is ready. Keep the momentum going.
       </p>
       <div className="relative mt-3.5 h-28 overflow-hidden rounded-[14px]">
@@ -164,7 +184,7 @@ function ContinueLearningCard({
 // The closing note at the foot of the dashboard, in both layouts.
 function MomentumCard({ className = "" }: { className?: string }) {
   return (
-    <section className={`relative flex flex-col items-center overflow-hidden rounded-[20px] border border-[#F1DCC6] bg-[#FCEEE0] px-5 pt-7 pb-16 text-center ${className}`}>
+    <section className={`relative flex flex-col items-center overflow-hidden rounded-[20px] border border-tint bg-tint px-5 pt-7 pb-16 text-center ${className}`}>
       <svg width="54" height="42" viewBox="0 0 48 48" fill={ACCENT} aria-hidden>
         <rect x="0" y="17" width="6" height="14" rx="3" />
         <rect x="10.5" y="9" width="6" height="30" rx="3" />
@@ -177,7 +197,7 @@ function MomentumCard({ className = "" }: { className?: string }) {
         <br />
         <span style={{ color: ACCENT }}>Big conversations.</span>
       </p>
-      <p className="mt-3 text-[13px] text-[#7A6A5E]">Keep speaking, keep learning.</p>
+      <p className="mt-3 text-[13px] text-mute">Keep speaking, keep learning.</p>
       <svg viewBox="0 0 272 70" preserveAspectRatio="none" fill="none" className="absolute inset-x-0 bottom-0 h-[70px] w-full" aria-hidden>
         <g stroke="#E8722A" strokeLinecap="round" strokeWidth="2">
           <path d="M-10 36 C 40 14 92 54 140 34 C 188 14 232 46 282 26" strokeOpacity="0.34" />
@@ -225,7 +245,7 @@ function Ring({ percent, size = 92, label }: { percent: number; size?: number; l
   return (
     <span className="relative block shrink-0" style={{ width: size, height: size }}>
       <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`} aria-hidden>
-        <circle cx={size / 2} cy={size / 2} r={r} fill="none" stroke="#EDEAE2" strokeWidth={stroke} />
+        <circle cx={size / 2} cy={size / 2} r={r} fill="none" strokeWidth={stroke} className="stroke-line" />
         {percent > 0 && (
           <circle
             cx={size / 2}
@@ -242,7 +262,7 @@ function Ring({ percent, size = 92, label }: { percent: number; size?: number; l
       </svg>
       <span className="absolute inset-0 flex flex-col items-center justify-center">
         <span className="text-[19px] font-bold">{percent}%</span>
-        {label && <span className="text-[11px] text-[#6F757B]">{label}</span>}
+        {label && <span className="text-[11px] text-mute">{label}</span>}
       </span>
     </span>
   );
@@ -251,11 +271,11 @@ function Ring({ percent, size = 92, label }: { percent: number; size?: number; l
 function Stat({ value, label, icon }: { value: number; label: string; icon: ReactNode }) {
   return (
     <span className="flex flex-1 flex-col gap-1.5 px-4 first:pl-0">
-      <span className="flex items-center gap-2">
+      <span className="flex items-center gap-2 text-[#8F959D] dark:text-mute">
         {icon}
-        <span className="text-xl font-bold">{value}</span>
+        <span className="text-xl font-bold text-ink">{value}</span>
       </span>
-      <span className="text-[12.5px] text-[#6F757B]">{label}</span>
+      <span className="text-[12.5px] text-mute">{label}</span>
     </span>
   );
 }
@@ -264,14 +284,14 @@ function QuickAction({ href, title, hint, icon }: { href: string; title: string;
   return (
     <Link
       href={href}
-      className="flex h-[54px] items-center gap-3 rounded-2xl border border-[#EAE7DF] bg-[#F8F6F1] px-3.5 transition-colors hover:border-[#DA5C1B]/50"
+      className="flex h-[54px] items-center gap-3 rounded-2xl border border-line bg-card-2 px-3.5 transition-colors hover:border-[#DA5C1B]/50"
     >
       <span className="grid size-[34px] shrink-0 place-items-center rounded-full" style={{ background: ACCENT }}>
         {icon}
       </span>
       <span className="flex flex-1 flex-col">
         <span className="text-sm font-semibold">{title}</span>
-        <span className="text-xs text-[#6F757B]">{hint}</span>
+        <span className="text-xs text-mute">{hint}</span>
       </span>
       <Chevron />
     </Link>
@@ -280,9 +300,9 @@ function QuickAction({ href, title, hint, icon }: { href: string; title: string;
 
 function strengthBadge(score: number) {
   return score < GETTING_THERE ? (
-    <span className="shrink-0 rounded-full bg-[#FBE8D8] px-2.5 py-1 text-[11px] font-semibold text-[#A84A0C]">Weak</span>
+    <span className="shrink-0 rounded-full bg-tint px-2.5 py-1 text-[11px] font-semibold text-tint-ink">Weak</span>
   ) : (
-    <span className="shrink-0 rounded-full bg-[#FCEFDC] px-2.5 py-1 text-[11px] font-semibold text-[#8A5A08]">Medium</span>
+    <span className="shrink-0 rounded-full bg-amber px-2.5 py-1 text-[11px] font-semibold text-amber-ink">Medium</span>
   );
 }
 
@@ -326,9 +346,9 @@ export default async function DashboardPage() {
       <Stat
         value={progress.wordsLearned}
         label="Words learned"
-        icon={<BookIcon stroke="#8F959D" size={16} />}
+        icon={<BookIcon stroke="currentColor" size={16} />}
       />
-      <span className="w-px self-stretch bg-[#EAE7DF]" />
+      <span className="w-px self-stretch bg-line" />
       <Stat
         value={progress.streak}
         label="Day streak"
@@ -338,12 +358,12 @@ export default async function DashboardPage() {
           </svg>
         }
       />
-      <span className="w-px self-stretch bg-[#EAE7DF]" />
+      <span className="w-px self-stretch bg-line" />
       <Stat
         value={progress.conversationCount}
         label="Conversations"
         icon={
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#8F959D" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
             <path d="M20.5 11.6 a7.6 7.6 0 0 1 -10.8 6.9 L5 19.8 l1.1 -4.8 A7.6 7.6 0 1 1 20.5 11.6 Z" />
           </svg>
         }
@@ -355,7 +375,7 @@ export default async function DashboardPage() {
     <Card>
       <div className="flex items-center">
         <h2 className="flex-1 text-base font-bold tracking-[-0.01em]">Suggested Review</h2>
-        <Link href="/vocabulary#review" className="text-[12.5px] font-medium text-[#6F757B] hover:text-[#23252A]">
+        <Link href="/vocabulary#review" className="text-[12.5px] font-medium text-mute hover:text-ink">
           Review all
         </Link>
       </div>
@@ -370,7 +390,7 @@ export default async function DashboardPage() {
                 <span className="flex min-w-0 flex-1 flex-col">
                   <span className="truncate text-[13.5px] font-semibold">{word.text}</span>
                   {word.translation && (
-                    <span className="truncate text-[11.5px] text-[#6F757B]">{word.translation}</span>
+                    <span className="truncate text-[11.5px] text-mute">{word.translation}</span>
                   )}
                 </span>
                 {strengthBadge(word.confidence_score)}
@@ -379,7 +399,7 @@ export default async function DashboardPage() {
           ))}
         </ul>
       ) : (
-        <p className="mt-3 text-[13px] leading-relaxed text-[#6F757B]">
+        <p className="mt-3 text-[13px] leading-relaxed text-mute">
           Words you reach for in conversation will show up here to review.
         </p>
       )}
@@ -397,16 +417,17 @@ export default async function DashboardPage() {
               <h1 className="text-[26px] font-bold tracking-[-0.02em] text-white">{hello}</h1>
               <p className="mt-1.5 text-sm text-white/80">Keep going, you&apos;re making progress.</p>
             </div>
+            <ThemeToggle className="size-11 border-white/25 bg-white/15 text-white backdrop-blur-sm" />
             <Avatar name={name} size={44} />
           </div>
           <Link
             href="/settings"
-            className="relative mt-auto flex h-12 items-center gap-2.5 self-start rounded-full bg-[#FAF7F0]/92 pr-4 pl-1.5 backdrop-blur-sm"
+            className="relative mt-auto flex h-12 items-center gap-2.5 self-start rounded-full bg-card-2/92 pr-4 pl-1.5 backdrop-blur-sm"
           >
             <Flag code={target} size={36} />
             <span className="flex flex-col leading-tight">
               <span className="text-sm font-semibold">{language}</span>
-              <span className="text-xs text-[#6F757B]">{levelName(profile.skill_level)}</span>
+              <span className="text-xs text-mute">{levelName(profile.skill_level)}</span>
             </span>
             <Chevron />
           </Link>
@@ -417,7 +438,7 @@ export default async function DashboardPage() {
             <span className="flex-1 text-[15px] font-semibold">Vocabulary strength</span>
             <span className="text-[15px] font-bold">{progress.averageStrength}%</span>
           </div>
-          <div className="mt-2.5 h-2.5 rounded-full bg-[#E4E3DE]">
+          <div className="mt-2.5 h-2.5 rounded-full bg-line">
             <div className="h-2.5 rounded-full bg-[#E86E23]" style={{ width: `${progress.averageStrength}%` }} />
           </div>
         </div>
@@ -428,9 +449,9 @@ export default async function DashboardPage() {
             [progress.streak, "Day streak"],
             [progress.conversationCount, "Conversations"],
           ].map(([value, label]) => (
-            <div key={label} className="flex h-[86px] flex-col gap-2 rounded-[14px] border border-[#E8E5DC] px-3.5 py-4">
+            <div key={label} className="flex h-[86px] flex-col gap-2 rounded-[14px] border border-line px-3.5 py-4">
               <span className="text-xl font-bold">{value}</span>
-              <span className="text-xs text-[#6F757B]">{label}</span>
+              <span className="text-xs text-mute">{label}</span>
             </div>
           ))}
         </div>
@@ -444,13 +465,13 @@ export default async function DashboardPage() {
           Start Conversation
         </Link>
 
-        <Link href="/vocabulary#review" className="flex h-[76px] items-center gap-3.5 rounded-2xl border border-[#E8E5DC] px-4">
-          <span className="grid size-10 shrink-0 place-items-center rounded-full bg-[#FBE6D3]">
+        <Link href="/vocabulary#review" className="flex h-[76px] items-center gap-3.5 rounded-2xl border border-line px-4">
+          <span className="grid size-10 shrink-0 place-items-center rounded-full bg-tint">
             <BookIcon stroke={ACCENT} size={20} />
           </span>
           <span className="flex flex-1 flex-col gap-0.5">
             <span className="text-[15px] font-semibold">Suggested Review</span>
-            <span className="text-[13px] text-[#6F757B]">
+            <span className="text-[13px] text-mute">
               {progress.weakest.length > 0
                 ? `${Math.min(progress.strength.fresh + progress.strength.gettingThere, 99)} words need review`
                 : "Nothing to review yet"}
@@ -465,17 +486,17 @@ export default async function DashboardPage() {
           <div className="flex items-center">
             <h2 className="flex-1 text-[17px] font-bold tracking-[-0.01em]">Recent Sessions</h2>
             {progress.conversationCount > recent.length && (
-              <Link href="/conversations" className="text-[12.5px] font-medium text-[#6F757B]">View all</Link>
+              <Link href="/conversations" className="text-[12.5px] font-medium text-mute">View all</Link>
             )}
           </div>
           {recent.length > 0 ? (
-            <ul className="mt-3 flex flex-col divide-y divide-[#EAE7DF] border-y border-[#EAE7DF]">
+            <ul className="mt-3 flex flex-col divide-y divide-line border-y border-line">
               {recent.map((session) => (
                 <SessionRow key={session.id} session={session} languageLabel={language} />
               ))}
             </ul>
           ) : (
-            <p className="mt-3 text-sm text-[#6F757B]">Your conversations will show up here.</p>
+            <p className="mt-3 text-sm text-mute">Your conversations will show up here.</p>
           )}
         </section>
 
@@ -490,7 +511,7 @@ export default async function DashboardPage() {
 
             <Link
               href="/settings"
-              className="absolute top-6 right-6 flex h-10 items-center gap-2 rounded-xl bg-[#FAF7F0]/92 pr-3.5 pl-2 text-sm font-semibold"
+              className="absolute top-6 right-6 flex h-10 items-center gap-2 rounded-xl bg-card-2/92 pr-3.5 pl-2 text-sm font-semibold"
             >
               <Flag code={target} size={24} />
               {language}
@@ -564,7 +585,7 @@ export default async function DashboardPage() {
             <Card>
               <div className="flex items-center">
                 <h2 className="flex-1 text-base font-bold tracking-[-0.01em]">Vocabulary Progress</h2>
-                <Link href="/vocabulary" className="text-[12.5px] font-medium text-[#6F757B] hover:text-[#23252A]">View all</Link>
+                <Link href="/vocabulary" className="text-[12.5px] font-medium text-mute hover:text-ink">View all</Link>
               </div>
               <div className="mt-4 flex flex-col gap-3.5">
                 {[
@@ -575,11 +596,11 @@ export default async function DashboardPage() {
                   <div key={label as string} className="flex flex-col gap-1.5">
                     <span className="flex items-baseline">
                       <span className="flex-1 text-[13.5px] font-medium">{label}</span>
-                      <span className="text-[12.5px] font-semibold text-[#6F757B]">
+                      <span className="text-[12.5px] font-semibold text-mute">
                         {count} {count === 1 ? "word" : "words"}
                       </span>
                     </span>
-                    <span className="block h-2 rounded-full bg-[#EDEAE2]">
+                    <span className="block h-2 rounded-full bg-line">
                       <span
                         className="block h-2 rounded-full"
                         style={{ width: `${(100 * (count as number)) / total}%`, background: color as string }}
@@ -600,7 +621,7 @@ export default async function DashboardPage() {
               <Avatar name={name} size={56} />
               <span className="flex min-w-0 flex-1 flex-col gap-1">
                 <span className="truncate text-[19px] font-bold tracking-[-0.01em]">{name ?? "You"}</span>
-                <span className="text-[12.5px] text-[#6F757B]">
+                <span className="text-[12.5px] text-mute">
                   {levelName(profile.skill_level)} · {language}
                 </span>
                 <Link
@@ -613,8 +634,8 @@ export default async function DashboardPage() {
               </span>
             </div>
             {profile.goals && (
-              <div className="mt-5 border-t border-[#EAE7DF] pt-4">
-                <p className="text-xs font-semibold tracking-wide text-[#6F757B] uppercase">Learning goal</p>
+              <div className="mt-5 border-t border-line pt-4">
+                <p className="text-xs font-semibold tracking-wide text-mute uppercase">Learning goal</p>
                 <p className="mt-1.5 text-[13.5px] leading-relaxed">{profile.goals}</p>
               </div>
             )}
@@ -623,15 +644,15 @@ export default async function DashboardPage() {
           <Card>
             <h2 className="text-base font-bold tracking-[-0.01em]">This Week</h2>
             <div className="mt-3.5 grid grid-cols-2 gap-3">
-              <div className="rounded-2xl bg-[#F8F6F1] px-4 py-3">
+              <div className="rounded-2xl bg-card-2 px-4 py-3">
                 <p className="text-xl font-bold">{progress.weekConversations}</p>
-                <p className="text-xs text-[#6F757B]">
+                <p className="text-xs text-mute">
                   {progress.weekConversations === 1 ? "conversation" : "conversations"}
                 </p>
               </div>
-              <div className="rounded-2xl bg-[#F8F6F1] px-4 py-3">
+              <div className="rounded-2xl bg-card-2 px-4 py-3">
                 <p className="text-xl font-bold">{progress.weekMinutes}</p>
-                <p className="text-xs text-[#6F757B]">minutes speaking</p>
+                <p className="text-xs text-mute">minutes speaking</p>
               </div>
             </div>
           </Card>
@@ -640,7 +661,7 @@ export default async function DashboardPage() {
             <div className="flex items-center">
               <h2 className="flex-1 text-base font-bold tracking-[-0.01em]">Recent Sessions</h2>
               {progress.conversationCount > recent.length && (
-                <Link href="/conversations" className="text-[12.5px] font-medium text-[#6F757B] hover:text-[#23252A]">
+                <Link href="/conversations" className="text-[12.5px] font-medium text-mute hover:text-ink">
                   View all
                 </Link>
               )}
@@ -652,7 +673,7 @@ export default async function DashboardPage() {
                 ))}
               </ul>
             ) : (
-              <p className="mt-3 text-[13px] leading-relaxed text-[#6F757B]">
+              <p className="mt-3 text-[13px] leading-relaxed text-mute">
                 No conversations yet. Your first one will show up here with a
                 review of what went well.
               </p>

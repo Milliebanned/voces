@@ -16,7 +16,7 @@ export default function LoginPage() {
   const isSignup = mode === "signup";
 
   return (
-    <main className="flex flex-1 flex-col">
+    <main className="landing-sky flex flex-1 flex-col">
       <header className="mx-auto flex w-full max-w-6xl px-6 py-6">
         <Link href="/">
           <Wordmark />

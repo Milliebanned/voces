@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useEffect, useState } from "react";
 import { useFormStatus } from "react-dom";
 import { Flag } from "@/components/flag";
+import { ThemeToggle } from "@/components/theme-toggle";
 import {
   NATIVE_LANGUAGES,
   SKILL_LEVELS,
@@ -38,7 +39,7 @@ function Check() {
 
 function EmptyCheck() {
   return (
-    <span className="size-6 shrink-0 rounded-full border-2 border-[#D3D1CA]" />
+    <span className="size-6 shrink-0 rounded-full border-2 border-line-strong" />
   );
 }
 
@@ -46,8 +47,8 @@ function EmptyCheck() {
 function choiceClass(selected: boolean) {
   return `relative flex cursor-pointer items-center gap-4 rounded-[18px] px-5 transition-colors has-[:focus-visible]:ring-2 has-[:focus-visible]:ring-[#ED6A28]/40 ${
     selected
-      ? "border-2 border-[#ED6A28] bg-[#FBF5ED] px-[19px]"
-      : "border border-[#E9E7E0] bg-[#FDFCF8] hover:border-[#ED6A28]/50"
+      ? "border-2 border-[#ED6A28] bg-tint px-[19px]"
+      : "border border-line bg-card hover:border-[#ED6A28]/50"
   }`;
 }
 
@@ -93,12 +94,12 @@ function LanguageStep({
       <h1 className="text-center text-[32px] leading-[1.2] font-bold tracking-[-0.025em] sm:text-[40px]">
         {title}
       </h1>
-      <p className="mt-3 text-center text-[17px] leading-7 text-[#6F757B] sm:text-[19px]">
+      <p className="mt-3 text-center text-[17px] leading-7 text-mute sm:text-[19px]">
         {subtitle}
       </p>
 
-      <label className="mx-auto mt-8 flex h-14 w-full max-w-[520px] items-center gap-3 rounded-full bg-[#EFEEEB] px-5 focus-within:ring-2 focus-within:ring-[#ED6A28]/40">
-        <svg width="19" height="19" viewBox="0 0 20 20" fill="none" stroke="#8E969D" strokeWidth="1.9" strokeLinecap="round" aria-hidden>
+      <label className="mx-auto mt-8 flex h-14 w-full max-w-[520px] items-center gap-3 rounded-full bg-card-2 px-5 focus-within:ring-2 focus-within:ring-[#ED6A28]/40">
+        <svg width="19" height="19" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" className="text-mute" aria-hidden>
           <circle cx="8.6" cy="8.6" r="6.4" />
           <path d="M13.4 13.4 L18 18" />
         </svg>
@@ -110,7 +111,7 @@ function LanguageStep({
           // Enter would otherwise submit the whole onboarding form.
           onKeyDown={(event) => event.key === "Enter" && event.preventDefault()}
           placeholder="Search languages…"
-          className="min-w-0 flex-1 bg-transparent text-base outline-none placeholder:text-[#8E969D]"
+          className="min-w-0 flex-1 bg-transparent text-base outline-none placeholder:text-mute"
         />
       </label>
 
@@ -140,14 +141,14 @@ function LanguageStep({
                     <Flag code={option.code} />
                   </span>
                   <span className="flex flex-1 flex-col gap-0.5">
-                    <span className="text-base font-semibold text-[#17181A] sm:text-lg">
+                    <span className="text-base font-semibold text-ink sm:text-lg">
                       {option.label}
                     </span>
-                    <span dir="auto" className="text-sm text-[#6F757B] sm:text-[15px]">
+                    <span dir="auto" className="text-sm text-mute sm:text-[15px]">
                       {endonym(option.code)}
                     </span>
                     {saved[option.code] && (
-                      <span className="text-[12.5px] font-medium text-[#A84A0C]">
+                      <span className="text-[12.5px] font-medium text-tint-ink">
                         {savedLabel(saved[option.code])}
                       </span>
                     )}
@@ -158,7 +159,7 @@ function LanguageStep({
             })}
           </div>
         ) : (
-          <p className="text-center text-[15px] text-[#6F757B]">
+          <p className="text-center text-[15px] text-mute">
             No language matches &ldquo;{query}&rdquo;.
           </p>
         )}
@@ -206,13 +207,7 @@ export function OnboardingFlow({
   const exit = returning ? "/dashboard" : "/";
 
   return (
-    <main
-      className="relative flex-1 overflow-hidden text-[#121314]"
-      style={{
-        background:
-          "radial-gradient(60% 50% at 8% 0%, #FFFFFF 0%, rgba(255,255,255,0) 60%), radial-gradient(70% 70% at 100% 104%, #F3E5D4 0%, rgba(243,229,212,0) 64%), #F8F7F2",
-      }}
-    >
+    <main className="landing-sky relative flex-1 overflow-hidden text-ink">
       {/* Faint brand brush, kept low so it never competes with the form. */}
       <svg
         viewBox="0 0 1280 900"
@@ -241,7 +236,7 @@ export function OnboardingFlow({
         </Link>
 
         <span className="flex items-center gap-4">
-          <span className="hidden text-[15px] font-medium text-[#6F757B] sm:inline">
+          <span className="hidden text-[15px] font-medium text-mute sm:inline">
             Step {step + 1} of {STEPS}
           </span>
           <span
@@ -252,11 +247,13 @@ export function OnboardingFlow({
             {Array.from({ length: STEPS }, (_, index) => (
               <span
                 key={index}
-                className="h-2 w-10 rounded-full transition-colors sm:w-[60px]"
-                style={{ background: index <= step ? "#EB5F28" : "#E0DFDB" }}
+                className={`h-2 w-10 rounded-full transition-colors sm:w-[60px] ${
+                  index <= step ? "bg-[#EB5F28]" : "bg-line-strong"
+                }`}
               />
             ))}
           </span>
+          <ThemeToggle className="size-10" />
         </span>
       </header>
 
@@ -267,7 +264,7 @@ export function OnboardingFlow({
         {step === 0 ? (
           <Link
             href={exit}
-            className="flex items-center gap-2 self-start text-base font-medium text-[#6F757B] transition-colors hover:text-[#121314]"
+            className="flex items-center gap-2 self-start text-base font-medium text-mute transition-colors hover:text-ink"
           >
             <svg width="9" height="15" viewBox="0 0 12 20" fill="none" stroke="currentColor" strokeWidth="2.1" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
               <path d="M10 2 L2 10 L10 18" />
@@ -278,7 +275,7 @@ export function OnboardingFlow({
           <button
             type="button"
             onClick={() => setStep(step - 1)}
-            className="flex items-center gap-2 self-start text-base font-medium text-[#6F757B] transition-colors hover:text-[#121314]"
+            className="flex items-center gap-2 self-start text-base font-medium text-mute transition-colors hover:text-ink"
           >
             <svg width="9" height="15" viewBox="0 0 12 20" fill="none" stroke="currentColor" strokeWidth="2.1" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
               <path d="M10 2 L2 10 L10 18" />
@@ -321,7 +318,7 @@ export function OnboardingFlow({
             <h1 className="text-center text-[32px] leading-[1.2] font-bold tracking-[-0.025em] sm:text-[40px]">
               A little about you
             </h1>
-            <p className="mt-3 text-center text-[17px] leading-7 text-[#6F757B] sm:text-[19px]">
+            <p className="mt-3 text-center text-[17px] leading-7 text-mute sm:text-[19px]">
               So your partner speaks at the right level
             </p>
 
@@ -333,7 +330,7 @@ export function OnboardingFlow({
                 autoComplete="given-name"
                 defaultValue={initial.displayName}
                 placeholder="Your name"
-                className="h-14 rounded-2xl border border-[#E9E7E0] bg-[#FDFCF8] px-5 text-base outline-none placeholder:text-[#8E969D] focus:border-[#ED6A28]"
+                className="h-14 rounded-2xl border border-line bg-card px-5 text-base outline-none placeholder:text-mute focus:border-[#ED6A28]"
               />
             </label>
 
@@ -354,10 +351,10 @@ export function OnboardingFlow({
                       className="sr-only"
                     />
                     <span className="flex flex-1 flex-col gap-1">
-                      <span className="text-[17px] font-semibold text-[#17181A]">
+                      <span className="text-[17px] font-semibold text-ink">
                         {option.label}
                       </span>
-                      <span className="text-sm leading-relaxed text-[#6F757B]">
+                      <span className="text-sm leading-relaxed text-mute">
                         {option.hint}
                       </span>
                     </span>
@@ -370,14 +367,14 @@ export function OnboardingFlow({
             <label className="mt-7 flex flex-col gap-2">
               <span className="text-[15px] font-semibold">
                 What are you learning it for?{" "}
-                <span className="font-normal text-[#6F757B]">(optional)</span>
+                <span className="font-normal text-mute">(optional)</span>
               </span>
               <textarea
                 name="goals"
                 rows={3}
                 defaultValue={initial.goals}
                 placeholder="Travelling to Lyon next spring, and I want to order food without switching to English."
-                className="resize-none rounded-2xl border border-[#E9E7E0] bg-[#FDFCF8] px-5 py-4 text-base leading-relaxed outline-none placeholder:text-[#8E969D] focus:border-[#ED6A28]"
+                className="resize-none rounded-2xl border border-line bg-card px-5 py-4 text-base leading-relaxed outline-none placeholder:text-mute focus:border-[#ED6A28]"
               />
             </label>
           </div>

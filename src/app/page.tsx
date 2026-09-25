@@ -3,6 +3,8 @@ import type { ReactNode } from "react";
 import { HeroArt } from "@/components/hero-art";
 import { Landmark } from "@/components/landmarks";
 import { MobileMenu } from "@/components/mobile-menu";
+import { Comets, Stars } from "@/components/night-sky";
+import { ThemeToggle } from "@/components/theme-toggle";
 import { SCENARIOS, scenarioLabel } from "@/lib/scenarios";
 
 // The landing page carries its own slightly deeper orange and cream than the
@@ -214,7 +216,7 @@ function RecallScene() {
     >
       <span className="absolute h-[112px] w-[200px] rotate-[7deg] rounded-[18px] bg-[#F2C39A]" />
       <span className="absolute h-[112px] w-[200px] -rotate-[4deg] rounded-[18px] bg-[#FCEEDF]" />
-      <span className="relative flex h-[112px] w-[200px] flex-col justify-between rounded-[18px] bg-white p-4 shadow-[0_16px_30px_rgba(120,60,20,0.18)]">
+      <span className="relative flex h-[112px] w-[200px] flex-col justify-between rounded-[18px] bg-white p-4 text-[#17181B] shadow-[0_16px_30px_rgba(120,60,20,0.18)]">
         <span className="flex items-baseline justify-between">
           <span className="text-[17px] font-semibold">el recibo</span>
           <span className="text-[12.5px] text-[#6F757B]">receipt</span>
@@ -315,9 +317,9 @@ function Slip({
 }) {
   return (
     <div
-      className={`rounded-[22px] border border-[#EDE3D6] bg-[#FCFBF7] p-5 shadow-[0_22px_44px_rgba(92,36,6,0.28)] sm:p-6 ${className}`}
+      className={`rounded-[22px] border border-line bg-card p-5 shadow-[0_22px_44px_rgba(92,36,6,0.28)] sm:p-6 ${className}`}
     >
-      <span className="text-[11px] font-semibold tracking-[0.08em] text-[#6F757B] uppercase">
+      <span className="text-[11px] font-semibold tracking-[0.08em] text-mute uppercase">
         {label}
       </span>
       {children}
@@ -329,12 +331,25 @@ export default function Home() {
   return (
     <main
       id="top"
-      className="relative flex-1 overflow-hidden text-[#131518]"
-      style={{
-        background:
-          "radial-gradient(70% 55% at 6% 2%, #FFFFFF 0%, rgba(255,255,255,0) 62%), radial-gradient(85% 75% at 102% 104%, #F0E1CF 0%, rgba(240,225,207,0) 62%), #FAF6EF",
-      }}
+      className="landing-sky relative flex-1 overflow-hidden text-ink"
     >
+      {/* Night only: stars over the hero, and now and then a comet. */}
+      <svg
+        viewBox="0 0 1440 1000"
+        preserveAspectRatio="xMidYMin slice"
+        aria-hidden
+        className="pointer-events-none absolute inset-x-0 top-0 hidden h-[1000px] w-full dark:block"
+      >
+        <Stars width={1440} height={760} count={150} seed={7} />
+        <Comets
+          id="hero-comets"
+          comets={[
+            { x: 1180, y: 90, delay: 2, period: 11 },
+            { x: 860, y: 40, delay: 7, period: 16, length: 90 },
+            { x: 1400, y: 230, delay: 12, period: 19, length: 150 },
+          ]}
+        />
+      </svg>
       <header className="relative z-20 mx-auto flex w-full max-w-[1280px] items-center justify-between px-6 py-6 lg:px-[59px] lg:py-8">
         <Link href="/" aria-label="VOCES home">
           <span className="hidden sm:block">
@@ -349,26 +364,29 @@ export default function Home() {
           <a href="#top" aria-current="page" className="text-[17px] font-semibold" style={{ color: ORANGE }}>
             Home
           </a>
-          <a href="#features" className="text-[17px] font-medium text-[#22262B] transition-colors hover:text-[#C74D17]">
+          <a href="#features" className="text-[17px] font-medium text-ink transition-colors hover:text-[#C74D17]">
             Features
           </a>
-          <a href="#languages" className="text-[17px] font-medium text-[#22262B] transition-colors hover:text-[#C74D17]">
+          <a href="#languages" className="text-[17px] font-medium text-ink transition-colors hover:text-[#C74D17]">
             Languages
           </a>
           <a
             href="/doc.pdf"
             target="_blank"
             rel="noopener"
-            className="text-[17px] font-medium text-[#22262B] transition-colors hover:text-[#C74D17]"
+            className="text-[17px] font-medium text-ink transition-colors hover:text-[#C74D17]"
           >
             Guide
           </a>
-          <Link href="/login" className="text-[17px] font-medium text-[#22262B] transition-colors hover:text-[#C74D17]">
+          <Link href="/login" className="text-[17px] font-medium text-ink transition-colors hover:text-[#C74D17]">
             Sign in
           </Link>
         </nav>
 
         <div className="flex items-center gap-2">
+          <span className="hidden sm:block">
+            <ThemeToggle />
+          </span>
           <Link
             href="/login"
             className="grid h-11 place-items-center rounded-full px-5 text-[15px] font-semibold text-white shadow-[0_10px_22px_rgba(196,80,22,0.3)] transition-colors hover:bg-[#C74D17] sm:h-[55px] sm:px-8"
@@ -400,7 +418,7 @@ export default function Home() {
               </span>
             </h1>
 
-            <p className="mt-5 max-w-[640px] text-base leading-7 text-[#6F757B] sm:text-xl sm:leading-9 lg:mt-[25px] lg:text-[26px] lg:leading-[42px]">
+            <p className="mt-5 max-w-[640px] text-base leading-7 text-mute sm:text-xl sm:leading-9 lg:mt-[25px] lg:text-[26px] lg:leading-[42px]">
               Voice-first language immersion. Real conversations, smarter
               review, lasting progress.
             </p>
@@ -428,7 +446,7 @@ export default function Home() {
                       {language.flag}
                     </svg>
                   </span>
-                  <span className="text-[11.5px] font-medium whitespace-nowrap text-[#22262B] sm:text-[15px]">
+                  <span className="text-[11.5px] font-medium whitespace-nowrap text-ink sm:text-[15px]">
                     {language.name}
                   </span>
                 </li>
@@ -454,7 +472,7 @@ export default function Home() {
         {features.map((feature, index) => (
           <div
             key={feature.title}
-            className="overflow-hidden rounded-[30px] border border-[#ECE1D5] bg-white shadow-[0_24px_48px_rgba(62,34,12,0.12)] transition-transform duration-300 hover:-translate-y-1"
+            className="overflow-hidden rounded-[30px] border border-line bg-card shadow-[0_24px_48px_rgba(62,34,12,0.12)] transition-transform duration-300 hover:-translate-y-1"
           >
             <div aria-hidden className="relative h-[210px] overflow-hidden">
               <feature.Scene />
@@ -466,7 +484,7 @@ export default function Home() {
               <h2 className="mt-2 text-[19px] font-bold tracking-[-0.015em]">
                 {feature.title}
               </h2>
-              <p className="mt-2.5 text-[14.5px] leading-relaxed text-[#6F757B]">
+              <p className="mt-2.5 text-[14.5px] leading-relaxed text-mute">
                 {feature.body}
               </p>
             </div>
@@ -489,7 +507,7 @@ export default function Home() {
               <br />
               <span style={{ color: ORANGE }}>Eight ways in.</span>
             </h2>
-            <p className="mt-5 max-w-[520px] text-base leading-7 text-[#6F757B] sm:text-lg sm:leading-8">
+            <p className="mt-5 max-w-[520px] text-base leading-7 text-mute sm:text-lg sm:leading-8">
               Each conversation is set against a landmark from its
               language&apos;s country. Pick an opening, then follow the talk
               wherever it goes. The scenario only gets you started.
@@ -500,7 +518,7 @@ export default function Home() {
             {SCENARIOS.map((scenario) => (
               <li
                 key={scenario.id}
-                className="rounded-full border border-[#ECE1D5] bg-white/70 px-4 py-2 text-[14px] font-medium text-[#22262B]"
+                className="rounded-full border border-line bg-card/70 px-4 py-2 text-[14px] font-medium text-ink"
               >
                 {scenario.label}
               </li>
@@ -526,12 +544,12 @@ export default function Home() {
           aria-hidden
           className="pointer-events-none block h-[90px] w-full lg:h-[150px]"
         >
-          <path d="M0 70 C 60 40 120 10 200 22 C 280 34 330 70 390 48 L 390 120 L 0 120 Z" fill="#F6D7B7" />
-          <path d="M0 92 C 50 70 110 44 180 52 C 250 60 310 96 390 74 L 390 120 L 0 120 Z" fill="#E97C2A" />
-          <path d="M0 110 C 70 96 140 78 220 86 C 290 93 340 104 390 98 L 390 120 L 0 120 Z" fill="#DF641E" />
+          <path d="M0 70 C 60 40 120 10 200 22 C 280 34 330 70 390 48 L 390 120 L 0 120 Z" className="fill-[#F6D7B7] dark:fill-[#4A2316]" />
+          <path d="M0 92 C 50 70 110 44 180 52 C 250 60 310 96 390 74 L 390 120 L 0 120 Z" className="fill-[#E97C2A] dark:fill-[#361B12]" />
+          <path d="M0 110 C 70 96 140 78 220 86 C 290 93 340 104 390 98 L 390 120 L 0 120 Z" className="fill-[#DF641E] dark:fill-[#2B1710]" />
         </svg>
 
-        <div className="-mt-px bg-[#DF641E]">
+        <div className="review-band -mt-px">
           <div className="mx-auto grid w-full max-w-[1280px] gap-14 px-6 pt-10 pb-24 lg:grid-cols-[1fr_1fr] lg:items-center lg:gap-10 lg:px-[73px] lg:pt-12 lg:pb-32">
             <div>
               <h2
@@ -565,24 +583,24 @@ export default function Home() {
               <Slip label="You reached for" className="lg:-rotate-[2deg]">
                 <div className="mt-3 flex items-baseline justify-between gap-4">
                   <span className="text-[18px] font-semibold">fui a la plaza</span>
-                  <span className="text-[14px] text-[#6F757B]">I went to the plaza</span>
+                  <span className="text-[14px] text-mute">I went to the plaza</span>
                 </div>
-                <p className="mt-1.5 text-[13px] text-[#6F757B] italic">
+                <p className="mt-1.5 text-[13px] text-mute italic">
                   &ldquo;I went to the Plaza and ate tacos&rdquo;
                 </p>
               </Slip>
 
               <Slip label="Gender agreement" className="lg:-mt-3 lg:ml-10 lg:rotate-[1.5deg]">
-                <span className="ml-2 rounded-full bg-[#FBE6D3] px-2.5 py-0.5 text-[11px] font-semibold text-[#A84A0C]">
+                <span className="ml-2 rounded-full bg-tint px-2.5 py-0.5 text-[11px] font-semibold text-tint-ink">
                   Came up before
                 </span>
-                <p className="mt-3 text-[15px] text-[#6F757B] line-through decoration-[#6F757B]/60">
+                <p className="mt-3 text-[15px] text-mute line-through decoration-mute/60">
                   La comida estaba muy rico.
                 </p>
                 <p className="mt-1 text-[16px] font-medium">
                   La comida estaba muy <span style={{ color: ORANGE }}>rica</span>.
                 </p>
-                <p className="mt-3 text-[13.5px] leading-relaxed text-[#6F757B]">
+                <p className="mt-3 text-[13.5px] leading-relaxed text-mute">
                   <i>Comida</i> is feminine, so the adjective follows it.
                 </p>
               </Slip>
@@ -591,7 +609,7 @@ export default function Home() {
                 <div className="mt-3 flex items-center justify-between gap-4">
                   <span className="flex flex-col">
                     <span className="text-[18px] font-semibold">abarrotado</span>
-                    <span className="text-[14px] text-[#6F757B]">crowded</span>
+                    <span className="text-[14px] text-mute">crowded</span>
                   </span>
                   <span className="flex flex-col items-end gap-1.5">
                     <span className="flex gap-1">
@@ -603,7 +621,7 @@ export default function Home() {
                         />
                       ))}
                     </span>
-                    <span className="text-[12px] font-medium text-[#6F757B]">Getting there</span>
+                    <span className="text-[12px] font-medium text-mute">Getting there</span>
                   </span>
                 </div>
               </Slip>

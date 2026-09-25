@@ -2,6 +2,7 @@ import Link from "next/link";
 import type { ReactNode } from "react";
 import { logout } from "@/app/login/actions";
 import { Flag } from "@/components/flag";
+import { ThemeToggle } from "@/components/theme-toggle";
 import { languageName } from "@/lib/languages";
 
 export const ACCENT = "#DA5C1B";
@@ -67,7 +68,7 @@ export function Logo({ size = 30 }: { size?: number }) {
 export function Avatar({ name, size = 34 }: { name: string | null; size?: number }) {
   return (
     <span
-      className="grid shrink-0 place-items-center rounded-full bg-[#F1DCC6] font-bold text-[#A84A0C]"
+      className="grid shrink-0 place-items-center rounded-full bg-tint font-bold text-tint-ink"
       style={{ width: size, height: size, fontSize: size * 0.42 }}
       aria-hidden
     >
@@ -104,12 +105,15 @@ export function AppShell({
   children: ReactNode;
 }) {
   return (
-    <div className="min-h-dvh bg-[#F7F6F1] text-[#23252A]">
+    <div className="min-h-dvh bg-canvas text-ink">
       <div className="mx-auto flex w-full max-w-[1536px] gap-3 lg:p-7 lg:pl-7">
-        <aside className="sticky top-7 hidden h-[calc(100dvh-56px)] w-56 shrink-0 flex-col rounded-[20px] border border-[#E8E5DC] bg-[#FDFCF8] px-[18px] py-7 lg:flex">
-          <Link href="/dashboard" aria-label="VOCES home" className="pl-1.5">
-            <Logo />
-          </Link>
+        <aside className="sticky top-7 hidden h-[calc(100dvh-56px)] w-56 shrink-0 flex-col rounded-[20px] border border-line bg-card px-[18px] py-7 lg:flex">
+          <div className="flex items-center justify-between">
+            <Link href="/dashboard" aria-label="VOCES home" className="pl-1.5">
+              <Logo />
+            </Link>
+            <ThemeToggle className="size-9" />
+          </div>
 
           <nav aria-label="Main" className="mt-8 flex flex-col gap-1">
             {NAV.map((item) => {
@@ -121,8 +125,8 @@ export function AppShell({
                   aria-current={current ? "page" : undefined}
                   className={`flex h-11 items-center gap-3 rounded-xl px-3.5 text-[14.5px] transition-colors ${
                     current
-                      ? "bg-[#FBE6D3] font-semibold text-[#A84A0C]"
-                      : "font-medium text-[#4A4F55] hover:bg-[#F3F1EA]"
+                      ? "bg-tint font-semibold text-tint-ink"
+                      : "font-medium text-ink-2 hover:bg-card-2"
                   }`}
                 >
                   <NavIcon tab={item.tab} active={current} />
@@ -134,23 +138,23 @@ export function AppShell({
 
           <Link
             href="/settings"
-            className="mt-auto flex h-[62px] items-center gap-3 rounded-2xl border border-[#E8E5DC] px-3 transition-colors hover:border-[#DA5C1B]/50"
+            className="mt-auto flex h-[62px] items-center gap-3 rounded-2xl border border-line px-3 transition-colors hover:border-[#DA5C1B]/50"
           >
             <Flag code={targetLanguage} size={32} />
             <span className="flex flex-1 flex-col">
               <span className="text-sm font-semibold">{languageName(targetLanguage)}</span>
-              <span className="text-xs text-[#6F757B]">{levelName(level)}</span>
+              <span className="text-xs text-mute">{levelName(level)}</span>
             </span>
-            <svg width="7" height="12" viewBox="0 0 8 14" fill="none" stroke="#A9AEB4" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+            <svg width="7" height="12" viewBox="0 0 8 14" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" className="text-[#A9AEB4] dark:text-mute" aria-hidden>
               <path d="M1.5 1 L6.5 7 L1.5 13" />
             </svg>
           </Link>
 
-          <div className="mt-3.5 flex items-center gap-3 border-t border-[#EAE7DF] pt-4">
+          <div className="mt-3.5 flex items-center gap-3 border-t border-line pt-4">
             <Avatar name={name} />
             <span className="flex-1 truncate text-[14.5px] font-semibold">{name ?? "You"}</span>
             <form action={logout}>
-              <button type="submit" className="text-xs font-medium text-[#6F757B] hover:text-[#23252A]">
+              <button type="submit" className="text-xs font-medium text-mute hover:text-ink">
                 Sign out
               </button>
             </form>
@@ -162,7 +166,7 @@ export function AppShell({
 
       <nav
         aria-label="Main"
-        className="fixed inset-x-0 bottom-0 z-20 flex h-[69px] items-center border-t border-[#EAE7DF] bg-[#FBFAF6]/95 backdrop-blur lg:hidden"
+        className="fixed inset-x-0 bottom-0 z-20 flex h-[69px] items-center border-t border-line bg-card/95 backdrop-blur lg:hidden"
       >
         {NAV.map((item) => {
           const current = item.tab === active;
@@ -172,7 +176,7 @@ export function AppShell({
               href={item.href}
               aria-current={current ? "page" : undefined}
               className={`flex flex-1 flex-col items-center gap-1.5 text-[11px] ${
-                current ? "font-semibold text-[#DA5C1B]" : "font-medium text-[#6F757B]"
+                current ? "font-semibold text-[#DA5C1B]" : "font-medium text-mute"
               }`}
             >
               <NavIcon tab={item.tab} active={current} size={22} />
@@ -193,7 +197,7 @@ export function Card({
   className?: string;
 }) {
   return (
-    <section className={`rounded-[20px] border border-[#E8E5DC] bg-[#FDFCF8] p-5 ${className}`}>
+    <section className={`rounded-[20px] border border-line bg-card p-5 ${className}`}>
       {children}
     </section>
   );
@@ -201,7 +205,7 @@ export function Card({
 
 export function Chevron() {
   return (
-    <svg width="7" height="12" viewBox="0 0 8 14" fill="none" stroke="#A9AEB4" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden className="shrink-0">
+    <svg width="7" height="12" viewBox="0 0 8 14" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden className="shrink-0 text-[#A9AEB4] dark:text-mute">
       <path d="M1.5 1 L6.5 7 L1.5 13" />
     </svg>
   );

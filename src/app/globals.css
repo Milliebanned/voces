@@ -1,6 +1,12 @@
 @import "tailwindcss";
 
+/* Dark mode follows a class on <html>, set before first paint by the script in
+   the root layout: the learner's choice if they made one, the system's if not. */
+@custom-variant dark (&:where(.dark, .dark *));
+
 :root {
+  color-scheme: light;
+
   /* surfaces */
   --background: #fdf8f3;
   --surface: #fffdfb;
@@ -21,6 +27,56 @@
   --wave-2: #f8c79f;
   --wave-3: #f29a5c;
   --wave-4: #e8692a;
+
+  /* the signed-in app and the landing page */
+  --canvas: #f7f6f1;
+  --card: #fdfcf8;
+  --card-2: #f8f6f1;
+  --line: #e8e5dc;
+  --line-strong: #d3d1ca;
+  --ink: #23252a;
+  --ink-2: #4a4f55;
+  --mute: #6f757b;
+  --tint: #fbe6d3;
+  --tint-ink: #a84a0c;
+  --ok: #e4f2e2;
+  --ok-ink: #237a4b;
+  --amber: #fcefdc;
+  --amber-ink: #8a5a08;
+}
+
+/* Night after the dusk the brand is drawn in: deep blue-violet rather than
+   black, warm charcoal cards, cream type, and the orange left to glow. */
+.dark {
+  color-scheme: dark;
+
+  --background: #131219;
+  --surface: #1b1922;
+  --border: #2e2a36;
+  --foreground: #f2ece4;
+  --muted: #a0978f;
+  --accent-hover: #ff8a3d;
+  --accent-soft: rgba(237, 112, 20, 0.18);
+
+  --wave-1: #3a2418;
+  --wave-2: #6a2e1a;
+  --wave-3: #a8441a;
+  --wave-4: #d65a1c;
+
+  --canvas: #121119;
+  --card: #1b1922;
+  --card-2: #23202b;
+  --line: #2e2a36;
+  --line-strong: #3c3746;
+  --ink: #f2ece4;
+  --ink-2: #cfc6bc;
+  --mute: #a0978f;
+  --tint: #3a2418;
+  --tint-ink: #ffae78;
+  --ok: #16301f;
+  --ok-ink: #86d6a2;
+  --amber: #33290f;
+  --amber-ink: #f2c46b;
 }
 
 @theme inline {
@@ -37,6 +93,21 @@
   --color-wave-3: var(--wave-3);
   --color-wave-4: var(--wave-4);
 
+  --color-canvas: var(--canvas);
+  --color-card: var(--card);
+  --color-card-2: var(--card-2);
+  --color-line: var(--line);
+  --color-line-strong: var(--line-strong);
+  --color-ink: var(--ink);
+  --color-ink-2: var(--ink-2);
+  --color-mute: var(--mute);
+  --color-tint: var(--tint);
+  --color-tint-ink: var(--tint-ink);
+  --color-ok: var(--ok);
+  --color-ok-ink: var(--ok-ink);
+  --color-amber: var(--amber);
+  --color-amber-ink: var(--amber-ink);
+
   --font-sans: var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);
 }
@@ -47,7 +118,23 @@ body {
   font-family: var(--font-geist-sans), system-ui, sans-serif;
 }
 
-/* Landmarks recoloured as one flat skyline layer; their lit windows stay lit. */
+/* The landing page's sky: a warm cream morning, or a night sky that deepens
+   upwards from a faint ember glow on the horizon. */
+.landing-sky {
+  background:
+    radial-gradient(70% 55% at 6% 2%, #ffffff 0%, rgba(255, 255, 255, 0) 62%),
+    radial-gradient(85% 75% at 102% 104%, #f0e1cf 0%, rgba(240, 225, 207, 0) 62%),
+    #faf6ef;
+}
+.dark .landing-sky {
+  background:
+    radial-gradient(60% 40% at 78% 34%, rgba(120, 110, 190, 0.16) 0%, rgba(120, 110, 190, 0) 70%),
+    radial-gradient(90% 50% at 50% 100%, rgba(214, 90, 28, 0.1) 0%, rgba(214, 90, 28, 0) 70%),
+    linear-gradient(180deg, #0b0e1c 0%, #121528 38%, #17152a 70%, #131219 100%);
+}
+
+/* Landmarks recoloured as one flat skyline layer; their lit windows stay lit.
+   Each depth has a day tone and a night one, where the windows glow. */
 .silhouette * {
   fill: var(--silhouette);
 }
@@ -60,4 +147,82 @@ body {
 .silhouette [fill="#E0A85C"],
 .silhouette [fill="#D9A24E"] {
   fill: var(--silhouette-lit);
+}
+.silhouette-pale {
+  --silhouette: #f6c9a4;
+  --silhouette-lit: #fff0e2;
+}
+.silhouette-mid {
+  --silhouette: #f2b283;
+  --silhouette-lit: #ffe7d2;
+}
+.silhouette-near {
+  --silhouette: #d9601c;
+  --silhouette-lit: #ffd2a8;
+}
+.dark .silhouette-pale {
+  --silhouette: #2a2742;
+  --silhouette-lit: #8a6a4a;
+}
+.dark .silhouette-mid {
+  --silhouette: #211e35;
+  --silhouette-lit: #d9a05a;
+}
+.dark .silhouette-near {
+  --silhouette: #17141f;
+  --silhouette-lit: #ffc27a;
+}
+
+/* Stars twinkle out of step with each other; comets cross now and then. */
+@keyframes twinkle {
+  0%,
+  100% {
+    opacity: var(--star-glow, 0.9);
+  }
+  50% {
+    opacity: 0.15;
+  }
+}
+.star {
+  animation: twinkle var(--star-period, 4s) ease-in-out var(--star-delay, 0s) infinite;
+}
+
+@keyframes comet {
+  0% {
+    transform: translate(0, 0);
+    opacity: 0;
+  }
+  4% {
+    opacity: 1;
+  }
+  14% {
+    transform: translate(-520px, 300px);
+    opacity: 0;
+  }
+  100% {
+    transform: translate(-520px, 300px);
+    opacity: 0;
+  }
+}
+.comet {
+  opacity: 0;
+  animation: comet var(--comet-period, 14s) cubic-bezier(0.3, 0.1, 0.6, 1) var(--comet-delay, 0s) infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .star,
+  .comet {
+    animation: none;
+  }
+}
+
+/* The landing's closing band: brand orange by day, a dark ember glow by night. */
+.review-band {
+  background: #df641e;
+}
+.dark .review-band {
+  background:
+    radial-gradient(70% 70% at 82% 45%, rgba(214, 90, 28, 0.32) 0%, rgba(214, 90, 28, 0) 70%),
+    radial-gradient(50% 60% at 10% 90%, rgba(120, 80, 190, 0.12) 0%, rgba(120, 80, 190, 0) 70%),
+    #2b1710;
 }
