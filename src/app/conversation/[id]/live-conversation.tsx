@@ -836,7 +836,9 @@ export function LiveConversation({
       socket.send(
         JSON.stringify({
           type: "reply.create",
-          instructions: `They've gone quiet and may be stuck. Don't mention the silence or their ${languageLabel}. Ask one simple, friendly question about their own life that they can answer in one or two words.`,
+          // Always asking a question here stacked one on top of the agent's own
+          // unanswered question, which is the interview feel learners disliked.
+          instructions: `They've gone quiet and may be stuck. Don't mention the silence or their ${languageLabel}. If your last reply asked them something, don't ask again: say one small, easy thing about your own day that they could react to. Otherwise, ask one simple, friendly question about their own life that they can answer in one or two words.`,
         }),
       );
     }, 1000);
