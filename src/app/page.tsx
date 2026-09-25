@@ -1,6 +1,8 @@
 import Link from "next/link";
 import type { ReactNode } from "react";
+import { HeroArt } from "@/components/hero-art";
 import { Landmark } from "@/components/landmarks";
+import { MobileMenu } from "@/components/mobile-menu";
 import { SCENARIOS, scenarioLabel } from "@/lib/scenarios";
 
 // The landing page carries its own slightly deeper orange and cream than the
@@ -144,170 +146,6 @@ function Arrow({ color = "#FFFFFF" }: { color?: string }) {
 
 // Heights of the listening waveform, left to right.
 const WAVE = [8, 20, 30, 13, 40, 24, 46, 27, 15, 36, 21, 44, 17, 31, 10, 6];
-
-// A picture of the app mid-conversation. Nothing on it is interactive, so it
-// is hidden from assistive tech as a whole.
-function Phone() {
-  return (
-    <div
-      aria-hidden
-      className="relative h-[726px] w-[344px]"
-      style={{
-        transform:
-          "perspective(1600px) rotateX(3deg) rotateY(-11deg) rotateZ(8.5deg)",
-      }}
-    >
-      <div
-        className="absolute top-2 left-4 h-[712px] w-[330px] rounded-[54px]"
-        style={{
-          background:
-            "linear-gradient(90deg, #2B2B2E 0%, #121214 45%, #35353A 100%)",
-          boxShadow: "44px 58px 90px rgba(62, 34, 12, 0.34)",
-        }}
-      />
-      <div
-        className="absolute inset-0 rounded-[54px] p-[9px]"
-        style={{
-          background:
-            "linear-gradient(115deg, #3A3A3F 0%, #141417 22%, #0C0C0E 62%, #2E2E33 100%)",
-        }}
-      >
-        <div className="relative h-[708px] w-[326px] overflow-hidden rounded-[46px] bg-[#131315]">
-          <svg
-            width="326"
-            height="708"
-            viewBox="0 0 326 708"
-            fill="none"
-            className="absolute inset-0"
-          >
-            <defs>
-              <linearGradient id="phoneSky" x1="0" y1="0" x2="0" y2="1">
-                <stop offset="0" stopColor="#25323F" />
-                <stop offset="0.38" stopColor="#465360" />
-                <stop offset="0.66" stopColor="#8A6A3D" />
-                <stop offset="1" stopColor="#4A3720" />
-              </linearGradient>
-              <linearGradient id="phoneFade" x1="0" y1="0" x2="0" y2="1">
-                <stop offset="0" stopColor="#0F0F11" stopOpacity="0" />
-                <stop offset="0.45" stopColor="#121214" stopOpacity="0.22" />
-                <stop offset="0.62" stopColor="#141416" stopOpacity="0.74" />
-                <stop offset="0.74" stopColor="#151517" stopOpacity="1" />
-                <stop offset="1" stopColor="#151517" stopOpacity="1" />
-              </linearGradient>
-            </defs>
-            <rect width="326" height="708" fill="url(#phoneSky)" />
-            <g fill="#7C5D2F">
-              <path d="M238 176 L246 118 L254 176 Z" />
-              <path d="M214 214 C214 196 226 184 246 176 C266 184 278 196 278 214 Z" />
-              <rect x="214" y="212" width="64" height="196" />
-              <path d="M292 250 L297 214 L302 250 Z" />
-              <rect x="278" y="248" width="40" height="160" />
-              <path d="M182 276 L186 244 L190 276 Z" />
-              <rect x="170" y="274" width="46" height="134" />
-            </g>
-            <g fill="#D9A24E">
-              <rect x="222" y="238" width="14" height="30" rx="7" />
-              <rect x="256" y="238" width="14" height="30" rx="7" />
-              <rect x="286" y="288" width="12" height="26" rx="6" />
-              <rect x="180" y="306" width="12" height="26" rx="6" />
-            </g>
-            <path
-              d="M-6 250 C 30 228 58 250 74 226 C 92 248 104 262 116 300 C 126 336 118 384 96 408 L -6 408 Z"
-              fill="#33351F"
-            />
-            <path
-              d="M22 236 C 40 214 56 232 66 218 C 78 240 86 258 92 292 L 22 292 Z"
-              fill="#434527"
-            />
-            <rect y="404" width="326" height="130" fill="#33280F" />
-            <rect width="326" height="708" fill="url(#phoneFade)" />
-          </svg>
-
-          <div className="absolute top-14 left-0 flex h-[34px] w-full items-center px-[22px]">
-            <span className="flex items-center gap-[7px]">
-              <svg width="20" height="20" viewBox="0 0 20 20" fill="#FFFFFF">
-                <rect x="0" y="8" width="2.6" height="4" rx="1.3" />
-                <rect x="3.9" y="5.6" width="2.6" height="8.8" rx="1.3" />
-                <rect x="7.8" y="1" width="2.6" height="18" rx="1.3" />
-                <rect x="11.7" y="5.6" width="2.6" height="8.8" rx="1.3" />
-                <rect x="15.6" y="8.2" width="2.6" height="3.6" rx="1.3" />
-              </svg>
-              <span className="text-[15px] font-extrabold tracking-[0.05em] text-white">
-                VOCES
-              </span>
-            </span>
-          </div>
-
-          <div className="absolute top-[252px] left-5 max-w-[244px] rounded-[22px] bg-white px-5 py-[15px] shadow-[0_12px_26px_rgba(0,0,0,0.26)]">
-            <span className="text-[14.5px] leading-5 font-medium text-[#17181B]">
-              Let&apos;s talk about your day
-            </span>
-          </div>
-
-          <div
-            className="absolute top-[348px] right-5 max-w-[214px] rounded-[22px] px-5 py-[15px] shadow-[0_14px_28px_rgba(0,0,0,0.28)]"
-            style={{ background: "#EA742A" }}
-          >
-            <span className="text-[14.5px] leading-[21px] font-medium text-white">
-              I went to the Plaza and ate tacos
-            </span>
-          </div>
-
-          <div className="absolute top-[440px] left-0 flex w-full flex-col items-center gap-2.5">
-            <svg width="80" height="46" viewBox="0 0 80 46" fill="#FFFFFF">
-              {WAVE.map((height, i) => (
-                <rect
-                  key={i}
-                  x={i * 5}
-                  y={(46 - height) / 2}
-                  width="2.6"
-                  height={height}
-                  rx="1.3"
-                />
-              ))}
-            </svg>
-            <span className="text-sm font-medium tracking-[0.02em] text-white/85">
-              Listening…
-            </span>
-          </div>
-
-          <div className="absolute bottom-14 left-0 flex w-full items-center justify-center gap-10">
-            <span className="grid size-[46px] place-items-center rounded-full bg-white/10">
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#FFFFFF" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round">
-                <path d="M4 5h11" />
-                <path d="M9 3v2" />
-                <path d="M12.5 5c0 5-4 9-8.5 10" />
-                <path d="M6.5 9c1.6 3 4.2 5.3 7 6.2" />
-                <path d="M13 21l4.2-9.6L21.4 21" />
-                <path d="M14.7 17.6h5" />
-              </svg>
-            </span>
-            <span
-              className="grid size-[70px] place-items-center rounded-full shadow-[0_10px_24px_rgba(237,106,40,0.3)]"
-              style={{ background: ORANGE }}
-            >
-              <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#FFFFFF" strokeWidth="2" strokeLinecap="round">
-                <rect x="9" y="2.4" width="6" height="12" rx="3" fill="#FFFFFF" stroke="none" />
-                <path d="M5.5 11.2v1a6.5 6.5 0 0 0 13 0v-1" />
-                <path d="M12 19.4V22" />
-              </svg>
-            </span>
-            <span className="grid size-[46px] place-items-center rounded-full bg-white/10">
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#FFFFFF" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round">
-                <rect x="3" y="4.5" width="18" height="15" rx="3.5" />
-                <path d="M7 10.5h4" />
-                <path d="M7 14h8" />
-                <path d="M14.5 10.5h2.5" />
-              </svg>
-            </span>
-          </div>
-
-          <div className="absolute top-[11px] left-1/2 h-[26px] w-[92px] -translate-x-1/2 rounded-[13px] bg-black" />
-        </div>
-      </div>
-    </div>
-  );
-}
 
 // The mic mid-conversation, on the CTA's orange.
 function SpeakScene() {
@@ -497,7 +335,7 @@ export default function Home() {
           "radial-gradient(70% 55% at 6% 2%, #FFFFFF 0%, rgba(255,255,255,0) 62%), radial-gradient(85% 75% at 102% 104%, #F0E1CF 0%, rgba(240,225,207,0) 62%), #FAF6EF",
       }}
     >
-      <header className="relative z-10 mx-auto flex w-full max-w-[1280px] items-center justify-between px-6 py-6 lg:px-[59px] lg:py-8">
+      <header className="relative z-20 mx-auto flex w-full max-w-[1280px] items-center justify-between px-6 py-6 lg:px-[59px] lg:py-8">
         <Link href="/" aria-label="VOCES home">
           <span className="hidden sm:block">
             <Logo />
@@ -507,7 +345,7 @@ export default function Home() {
           </span>
         </Link>
 
-        <nav aria-label="Main" className="hidden items-center gap-10 md:flex">
+        <nav aria-label="Main" className="hidden items-center gap-10 lg:flex">
           <a href="#top" aria-current="page" className="text-[17px] font-semibold" style={{ color: ORANGE }}>
             Home
           </a>
@@ -530,34 +368,28 @@ export default function Home() {
           </Link>
         </nav>
 
-        <Link
-          href="/login"
-          className="grid h-11 place-items-center rounded-full px-5 text-[15px] font-semibold text-white shadow-[0_10px_22px_rgba(196,80,22,0.3)] transition-colors hover:bg-[#C74D17] sm:h-[55px] sm:px-8"
-          style={{ background: CTA }}
-        >
-          Get Started
-        </Link>
+        <div className="flex items-center gap-2">
+          <Link
+            href="/login"
+            className="grid h-11 place-items-center rounded-full px-5 text-[15px] font-semibold text-white shadow-[0_10px_22px_rgba(196,80,22,0.3)] transition-colors hover:bg-[#C74D17] sm:h-[55px] sm:px-8"
+            style={{ background: CTA }}
+          >
+            Get Started
+          </Link>
+          <MobileMenu />
+        </div>
       </header>
 
       <section className="relative">
-        {/* Brush strokes behind the phone, as drawn for the desktop board. */}
-        <svg
-          viewBox="0 0 1280 984"
-          fill="none"
-          aria-hidden
-          className="pointer-events-none absolute top-[-110px] left-1/2 hidden h-[984px] w-[1280px] -translate-x-1/2 lg:block"
-        >
-          <g strokeLinecap="round">
-            <path d="M1330 356 L906 640" stroke="#EA7429" strokeOpacity="0.42" strokeWidth="104" />
-            <path d="M762 300 L836 468" stroke="#EA7429" strokeOpacity="0.46" strokeWidth="72" />
-            <path d="M748 396 L1206 736" stroke="#EA7429" strokeWidth="106" />
-          </g>
-          <ellipse cx="1196" cy="738" rx="92" ry="84" fill="#EA7429" />
-        </svg>
-
-        <div className="relative mx-auto grid w-full max-w-[1280px] items-start px-6 pt-10 pb-64 lg:grid-cols-[1fr_auto] lg:px-[73px] lg:pt-[99px] lg:pb-28">
+        {/* Text sits over the art's empty upper-left; the sun and skyline
+            fill the rest, as on the guide's cover. */}
+        <div className="relative z-10 mx-auto w-full max-w-[1280px] px-6 pt-10 pb-[86vw] lg:px-[73px] lg:pt-[72px] lg:pb-[25vw] xl:pb-[21vw]">
           <div>
-            <h1 className="text-[40px] leading-[1.28] font-bold tracking-[-0.03em] sm:text-[52px] lg:text-[60px]">
+            <p className="text-[12px] font-semibold tracking-[0.14em] uppercase sm:text-[13px]" style={{ color: ORANGE }}>
+              Six languages, spoken out loud
+            </p>
+
+            <h1 className="mt-4 text-[40px] leading-[1.28] font-bold tracking-[-0.03em] sm:text-[52px] lg:text-[60px]">
               Practice the
               <br />
               language by
@@ -587,41 +419,32 @@ export default function Home() {
             <ul
               id="languages"
               aria-label="Languages you can practise"
-              className="mt-14 flex scroll-mt-24 flex-wrap gap-x-10 gap-y-6 lg:mt-[78px] lg:gap-x-[52px]"
+              className="mt-10 flex scroll-mt-24 justify-between sm:mt-14 sm:flex-wrap sm:justify-start sm:gap-x-10 sm:gap-y-6 lg:mt-[78px] lg:gap-x-7 xl:gap-x-[52px]"
             >
               {languages.map((language) => (
-                <li key={language.name} className="flex w-[52px] flex-col items-center gap-2.5">
-                  <span className="block size-[41px] overflow-hidden rounded-full bg-white shadow-[0_5px_14px_rgba(86,52,20,0.16)]">
-                    <svg width="41" height="41" viewBox="0 0 30 22" preserveAspectRatio="xMidYMid slice" aria-hidden>
+                <li key={language.name} className="flex w-[46px] flex-col items-center gap-2 sm:w-[52px] sm:gap-2.5">
+                  <span className="block size-[34px] overflow-hidden rounded-full bg-white shadow-[0_5px_14px_rgba(86,52,20,0.16)] sm:size-[41px]">
+                    <svg viewBox="0 0 30 22" className="size-full" preserveAspectRatio="xMidYMid slice" aria-hidden>
                       {language.flag}
                     </svg>
                   </span>
-                  <span className="text-[15px] font-medium whitespace-nowrap text-[#22262B]">
+                  <span className="text-[11.5px] font-medium whitespace-nowrap text-[#22262B] sm:text-[15px]">
                     {language.name}
                   </span>
                 </li>
               ))}
             </ul>
           </div>
-
-          <div className="hidden pt-8 pr-6 lg:block">
-            <Phone />
-          </div>
         </div>
 
-        {/* The mobile board's waves stand in for the phone on small screens. */}
-        <svg
-          viewBox="0 0 390 350"
-          preserveAspectRatio="none"
-          aria-hidden
-          className="pointer-events-none absolute inset-x-0 bottom-0 h-[260px] w-full lg:hidden"
-        >
-          <path d="M0 102 C 40 92 78 2 165 0 C 232 -2 268 52 306 126 L 390 266 L 390 350 L 0 350 Z" fill="#F6D7B7" />
-          <path d="M0 154 C 32 138 68 90 118 94 C 152 97 176 122 198 112 C 226 98 244 -2 300 -4 C 348 -6 378 26 390 58 L 390 350 L 0 350 Z" fill="#E97C2A" />
-          <path d="M0 288 C 30 278 70 236 120 188 C 158 150 200 110 252 102 C 308 94 360 90 390 84 L 390 350 L 0 350 Z" fill="#DF641E" />
-          {/* Hands the waves back to the cream page instead of a hard line. */}
-          <path d="M0 350 L0 322 C 90 300 170 334 260 326 C 320 320 360 304 390 300 L 390 350 Z" fill="#FAF6EF" />
-        </svg>
+        <HeroArt
+          variant="wide"
+          className="pointer-events-none absolute inset-x-0 bottom-0 hidden h-auto w-full lg:block"
+        />
+        <HeroArt
+          variant="tall"
+          className="pointer-events-none absolute inset-x-0 bottom-0 block h-auto w-full lg:hidden"
+        />
       </section>
 
       <section

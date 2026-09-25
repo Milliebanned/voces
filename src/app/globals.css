@@ -46,3 +46,18 @@ body {
   color: var(--foreground);
   font-family: var(--font-geist-sans), system-ui, sans-serif;
 }
+
+/* Landmarks recoloured as one flat skyline layer; their lit windows stay lit. */
+.silhouette * {
+  fill: var(--silhouette);
+}
+.silhouette [fill="none"] {
+  fill: none;
+}
+.silhouette [stroke] {
+  stroke: var(--silhouette);
+}
+.silhouette [fill="#E0A85C"],
+.silhouette [fill="#D9A24E"] {
+  fill: var(--silhouette-lit);
+}
