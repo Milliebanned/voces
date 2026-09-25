@@ -51,6 +51,16 @@ function choiceClass(selected: boolean) {
   }`;
 }
 
+// What a learner already has in each language, keyed by language code.
+type Saved = Record<string, { talks: number; words: number }>;
+
+function savedLabel({ talks, words }: { talks: number; words: number }) {
+  const parts = [];
+  if (talks) parts.push(`${talks} ${talks === 1 ? "conversation" : "conversations"}`);
+  if (words) parts.push(`${words} ${words === 1 ? "word" : "words"}`);
+  return `${parts.join(" · ")} saved`;
+}
+
 function LanguageStep({
   title,
   subtitle,
@@ -58,6 +68,7 @@ function LanguageStep({
   name,
   value,
   onChange,
+  saved = {},
 }: {
   title: string;
   subtitle: string;
@@ -65,6 +76,7 @@ function LanguageStep({
   name: string;
   value: string;
   onChange: (code: string) => void;
+  saved?: Saved;
 }) {
   const [query, setQuery] = useState("");
   const needle = query.trim().toLowerCase();
@@ -134,6 +146,11 @@ function LanguageStep({
                     <span dir="auto" className="text-sm text-[#6F757B] sm:text-[15px]">
                       {endonym(option.code)}
                     </span>
+                    {saved[option.code] && (
+                      <span className="text-[12.5px] font-medium text-[#A84A0C]">
+                        {savedLabel(saved[option.code])}
+                      </span>
+                    )}
                   </span>
                   {selected ? <Check /> : <EmptyCheck />}
                 </label>
@@ -170,9 +187,11 @@ function FinishButton({ returning }: { returning: boolean }) {
 export function OnboardingFlow({
   initial,
   returning,
+  saved,
 }: {
   initial: Initial;
   returning: boolean;
+  saved: Saved;
 }) {
   const [step, setStep] = useState(0);
   const [target, setTarget] = useState(initial.targetLanguage);
@@ -274,8 +293,13 @@ export function OnboardingFlow({
           <div hidden={step !== 0}>
             <LanguageStep
               title="Which language do you want to learn?"
-              subtitle="Choose your target language"
+              subtitle={
+                returning
+                  ? "Each language keeps its own progress. Switch back any time."
+                  : "Choose your target language"
+              }
               options={TARGET_LANGUAGES}
+              saved={saved}
               name="target_language"
               value={target}
               onChange={setTarget}
