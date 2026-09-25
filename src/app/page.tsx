@@ -517,6 +517,14 @@ export default function Home() {
           <a href="#languages" className="text-[17px] font-medium text-[#22262B] transition-colors hover:text-[#C74D17]">
             Languages
           </a>
+          <a
+            href="/doc.pdf"
+            target="_blank"
+            rel="noopener"
+            className="text-[17px] font-medium text-[#22262B] transition-colors hover:text-[#C74D17]"
+          >
+            Guide
+          </a>
           <Link href="/login" className="text-[17px] font-medium text-[#22262B] transition-colors hover:text-[#C74D17]">
             Sign in
           </Link>
