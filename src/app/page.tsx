@@ -579,8 +579,8 @@ export default function Home() {
 
             {/* A sample review. It follows on from the hero phone, where the
                 learner fell back on English mid-sentence. */}
-            <div aria-hidden className="relative mx-auto flex w-full max-w-[460px] flex-col gap-4 lg:gap-0">
-              <Slip label="You reached for" className="lg:-rotate-[2deg]">
+            <div aria-hidden className="relative mx-auto flex w-full max-w-[460px] flex-col">
+              <Slip label="You reached for" className="-rotate-[2deg]">
                 <div className="mt-3 flex items-baseline justify-between gap-4">
                   <span className="text-[18px] font-semibold">fui a la plaza</span>
                   <span className="text-[14px] text-mute">I went to the plaza</span>
@@ -590,7 +590,7 @@ export default function Home() {
                 </p>
               </Slip>
 
-              <Slip label="Gender agreement" className="lg:-mt-3 lg:ml-10 lg:rotate-[1.5deg]">
+              <Slip label="Gender agreement" className="-mt-3 ml-6 rotate-[1.5deg] lg:ml-10">
                 <span className="ml-2 rounded-full bg-tint px-2.5 py-0.5 text-[11px] font-semibold text-tint-ink">
                   Came up before
                 </span>
@@ -605,7 +605,7 @@ export default function Home() {
                 </p>
               </Slip>
 
-              <Slip label="Back next time" className="lg:-mt-3 lg:mr-12 lg:-rotate-[1deg]">
+              <Slip label="Back next time" className="-mt-3 mr-7 -rotate-[1deg] lg:mr-12">
                 <div className="mt-3 flex items-center justify-between gap-4">
                   <span className="flex flex-col">
                     <span className="text-[18px] font-semibold">abarrotado</span>
