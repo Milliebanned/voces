@@ -1,7 +1,7 @@
 @import "tailwindcss";
 
 /* Dark mode follows a class on <html>, set before first paint by the script in
-   the root layout: the learner's choice if they made one, the system's if not. */
+   the root layout: light unless the learner has chosen night. */
 @custom-variant dark (&:where(.dark, .dark *));
 
 :root {
@@ -209,7 +209,38 @@ body {
   animation: comet var(--comet-period, 14s) cubic-bezier(0.3, 0.1, 0.6, 1) var(--comet-delay, 0s) infinite;
 }
 
+/* The logo's bars rise and fall while something loads. */
+@keyframes logo-bar {
+  0%,
+  100% {
+    transform: scaleY(0.45);
+  }
+  50% {
+    transform: scaleY(1);
+  }
+}
+.logo-bar {
+  animation: logo-bar 0.9s ease-in-out infinite;
+}
+
+/* Held back a beat so an action that returns quickly never flashes it. */
+@keyframes pending-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+.pending-overlay {
+  opacity: 0;
+  animation: pending-in 0.2s ease-out 0.15s forwards;
+}
+
 @media (prefers-reduced-motion: reduce) {
+  .logo-bar {
+    animation-duration: 2.4s;
+  }
   .star,
   .comet {
     animation: none;

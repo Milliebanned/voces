@@ -13,6 +13,7 @@ import {
 import { Flag } from "@/components/flag";
 import { Landmark } from "@/components/landmarks";
 import { Stars } from "@/components/night-sky";
+import { PendingOverlay } from "@/components/pending-overlay";
 import { SessionRow } from "@/components/session-row";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { languageName } from "@/lib/languages";
@@ -165,6 +166,7 @@ function ContinueLearningCard({
             <p className="truncate text-[13.5px] text-white/86">{scenarioBlurb(suggested.id)}</p>
           </div>
           <form action={startConversation}>
+            <PendingOverlay label="Starting your conversation" />
             <input type="hidden" name="scenario" value={suggested.id} />
             <button
               type="submit"
@@ -509,14 +511,17 @@ export default async function DashboardPage() {
           <section className="relative min-h-72 overflow-hidden rounded-[20px]">
             <HeroScene code={target} id="hero-wide" />
 
-            <Link
-              href="/settings"
-              className="absolute top-6 right-6 flex h-10 items-center gap-2 rounded-xl bg-card-2/92 pr-3.5 pl-2 text-sm font-semibold"
-            >
-              <Flag code={target} size={24} />
-              {language}
-              <Chevron />
-            </Link>
+            <div className="absolute top-6 right-6 z-10 flex items-center gap-2">
+              <Link
+                href="/settings"
+                className="flex h-10 items-center gap-2 rounded-xl bg-card-2/92 pr-3.5 pl-2 text-sm font-semibold"
+              >
+                <Flag code={target} size={24} />
+                {language}
+                <Chevron />
+              </Link>
+              <ThemeToggle className="size-10 border-white/25 bg-white/15 text-white backdrop-blur-sm" />
+            </div>
 
             <div className="relative px-10 pt-10 pb-9">
               <p className="text-[13px] font-bold tracking-[0.12em] text-[#F2913F] uppercase">{hello}</p>

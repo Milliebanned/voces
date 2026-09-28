@@ -2,6 +2,7 @@
 
 import { useState, useTransition } from "react";
 import { deleteConversation } from "@/app/conversation/[id]/analysis/actions";
+import { LoadingBars } from "@/components/logo-loader";
 
 // Compact confirm-in-place delete for a row in a list of past conversations.
 export function DeleteSessionButton({ sessionId }: { sessionId: string }) {
@@ -36,8 +37,9 @@ export function DeleteSessionButton({ sessionId }: { sessionId: string }) {
             if (result?.error) setFailed(true);
           })
         }
-        className="rounded-full bg-accent px-3 py-1 text-[12px] font-semibold text-white transition-colors hover:bg-accent-hover disabled:opacity-60"
+        className="flex items-center gap-1.5 rounded-full bg-accent px-3 py-1 text-[12px] font-semibold text-white transition-colors hover:bg-accent-hover disabled:opacity-60"
       >
+        {isPending && <LoadingBars height={10} />}
         {isPending ? "Deleting…" : failed ? "Retry" : "Delete"}
       </button>
       <button

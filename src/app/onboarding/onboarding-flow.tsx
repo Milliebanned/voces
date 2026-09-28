@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useEffect, useState } from "react";
 import { useFormStatus } from "react-dom";
 import { Flag } from "@/components/flag";
+import { PendingOverlay } from "@/components/pending-overlay";
 import { ThemeToggle } from "@/components/theme-toggle";
 import {
   NATIVE_LANGUAGES,
@@ -261,6 +262,7 @@ export function OnboardingFlow({
         action={completeOnboarding}
         className="relative mx-auto flex w-full max-w-[880px] flex-col px-5 pt-6 pb-24 sm:px-5 lg:pt-[72px]"
       >
+        <PendingOverlay label="Saving your choices" />
         {step === 0 ? (
           <Link
             href={exit}

@@ -356,7 +356,7 @@ export default function Home() {
             <Logo />
           </span>
           <span className="sm:hidden">
-            <Logo size={34} />
+            <Logo size={30} />
           </span>
         </Link>
 
@@ -383,13 +383,11 @@ export default function Home() {
           </Link>
         </nav>
 
-        <div className="flex items-center gap-2">
-          <span className="hidden sm:block">
-            <ThemeToggle />
-          </span>
+        <div className="flex items-center gap-1.5 sm:gap-2">
+          <ThemeToggle className="size-10 sm:size-11" />
           <Link
             href="/login"
-            className="grid h-11 place-items-center rounded-full px-5 text-[15px] font-semibold text-white shadow-[0_10px_22px_rgba(196,80,22,0.3)] transition-colors hover:bg-[#C74D17] sm:h-[55px] sm:px-8"
+            className="grid h-10 place-items-center rounded-full px-4 text-[14px] font-semibold text-white shadow-[0_10px_22px_rgba(196,80,22,0.3)] transition-colors hover:bg-[#C74D17] sm:h-[55px] sm:px-8 sm:text-[15px]"
             style={{ background: CTA }}
           >
             Get Started

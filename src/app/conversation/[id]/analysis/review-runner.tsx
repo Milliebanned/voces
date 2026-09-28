@@ -2,6 +2,7 @@
 
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useRef, useState } from "react";
+import { LoadingBars } from "@/components/logo-loader";
 import { runAnalysis } from "./actions";
 
 // Kicked off from the page rather than while saving the transcript, so ending
@@ -47,7 +48,7 @@ export function ReviewRunner({ sessionId }: { sessionId: string }) {
   return (
     <div className="rounded-2xl border border-border bg-surface p-6">
       <div className="flex items-center gap-3">
-        <span className="size-2 animate-pulse rounded-full bg-accent" />
+        <LoadingBars height={16} className="text-accent" />
         <h2 className="text-[15px] font-semibold">Reviewing your conversation…</h2>
       </div>
       <p className="mt-2 text-[14px] leading-relaxed text-muted">

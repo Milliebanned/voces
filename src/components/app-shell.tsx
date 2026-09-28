@@ -2,7 +2,7 @@ import Link from "next/link";
 import type { ReactNode } from "react";
 import { logout } from "@/app/login/actions";
 import { Flag } from "@/components/flag";
-import { ThemeToggle } from "@/components/theme-toggle";
+import { PendingOverlay } from "@/components/pending-overlay";
 import { languageName } from "@/lib/languages";
 
 export const ACCENT = "#DA5C1B";
@@ -108,12 +108,9 @@ export function AppShell({
     <div className="min-h-dvh bg-canvas text-ink">
       <div className="mx-auto flex w-full max-w-[1536px] gap-3 lg:p-7 lg:pl-7">
         <aside className="sticky top-7 hidden h-[calc(100dvh-56px)] w-56 shrink-0 flex-col rounded-[20px] border border-line bg-card px-[18px] py-7 lg:flex">
-          <div className="flex items-center justify-between">
-            <Link href="/dashboard" aria-label="VOCES home" className="pl-1.5">
-              <Logo />
-            </Link>
-            <ThemeToggle className="size-9" />
-          </div>
+          <Link href="/dashboard" aria-label="VOCES home" className="pl-1.5">
+            <Logo />
+          </Link>
 
           <nav aria-label="Main" className="mt-8 flex flex-col gap-1">
             {NAV.map((item) => {
@@ -154,6 +151,7 @@ export function AppShell({
             <Avatar name={name} />
             <span className="flex-1 truncate text-[14.5px] font-semibold">{name ?? "You"}</span>
             <form action={logout}>
+              <PendingOverlay label="Signing out" />
               <button type="submit" className="text-xs font-medium text-mute hover:text-ink">
                 Sign out
               </button>

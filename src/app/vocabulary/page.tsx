@@ -2,6 +2,7 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { NewConversationLink } from "@/components/new-conversation-link";
 import { Flashcards } from "@/components/flashcards";
+import { PendingOverlay } from "@/components/pending-overlay";
 import { PronounceButton } from "@/components/pronounce-button";
 import { Wordmark } from "@/components/wordmark";
 import { languageName, textDirection } from "@/lib/languages";
@@ -78,6 +79,7 @@ export default async function VocabularyPage() {
           action={addVocabularyItem}
           className="mt-8 flex flex-col gap-3 rounded-2xl border border-border bg-surface p-5 sm:flex-row"
         >
+          <PendingOverlay label="Saving the word" />
           <input
             type="text"
             name="text"
@@ -141,6 +143,7 @@ export default async function VocabularyPage() {
                       </span>
                     ))}
                   <form action={deleteVocabularyItem}>
+                    <PendingOverlay label="Removing the word" />
                     <input type="hidden" name="id" value={item.id} />
                     <button
                       type="submit"

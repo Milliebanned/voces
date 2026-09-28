@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useTransition } from "react";
+import { LoadingBars } from "@/components/logo-loader";
 import { saveSuggestedWord } from "./actions";
 
 export function SaveWordButton({
@@ -33,8 +34,9 @@ export function SaveWordButton({
           if (!error) setSaved(true);
         })
       }
-      className="shrink-0 rounded-full border border-border px-4 py-1.5 text-[13px] font-semibold text-accent transition-colors hover:border-accent disabled:opacity-60"
+      className="flex shrink-0 items-center gap-2 rounded-full border border-border px-4 py-1.5 text-[13px] font-semibold text-accent transition-colors hover:border-accent disabled:opacity-60"
     >
+      {isPending && <LoadingBars height={12} />}
       {isPending ? "Saving…" : failed ? "Retry" : "Save"}
     </button>
   );

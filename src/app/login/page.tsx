@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useActionState, useState } from "react";
+import { PendingOverlay } from "@/components/pending-overlay";
 import { Wordmark } from "@/components/wordmark";
 import { login, signup, type AuthState } from "./actions";
 
@@ -35,6 +36,7 @@ export default function LoginPage() {
           </p>
 
           <form action={formAction} className="mt-8 flex flex-col gap-4">
+            <PendingOverlay label="Signing in" />
             <label className="flex flex-col gap-2">
               <span className="text-[13px] font-medium">Email</span>
               <input

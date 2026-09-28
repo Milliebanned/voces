@@ -2,7 +2,6 @@
 
 import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
-import { ThemeToggle } from "@/components/theme-toggle";
 
 const LINKS = [
   { href: "#top", label: "Home" },
@@ -42,7 +41,7 @@ export function MobileMenu() {
         aria-controls="mobile-menu"
         aria-label={open ? "Close menu" : "Open menu"}
         onClick={() => setOpen((value) => !value)}
-        className="grid size-11 place-items-center rounded-full border border-line bg-card/80 text-ink"
+        className="grid size-10 place-items-center rounded-full border border-line bg-card/80 text-ink sm:size-11"
       >
         <svg width="18" height="18" viewBox="0 0 18 18" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" aria-hidden>
           {open ? (
@@ -84,11 +83,6 @@ export function MobileMenu() {
           >
             Sign in
           </Link>
-          {/* The header has no room for the switch at phone width. */}
-          <div className="mt-1 flex h-14 items-center justify-between rounded-2xl border-t border-line pr-2 pl-5">
-            <span className="text-[15px] font-semibold text-ink">Appearance</span>
-            <ThemeToggle className="size-10" />
-          </div>
         </nav>
       )}
     </div>

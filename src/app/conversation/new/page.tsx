@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
+import { PendingOverlay } from "@/components/pending-overlay";
 import { Wordmark } from "@/components/wordmark";
 import { isSupportedTarget, languageName } from "@/lib/languages";
 import { SCENARIOS } from "@/lib/scenarios";
@@ -75,6 +76,7 @@ export default async function NewConversationPage() {
         </p>
 
         <form action={startConversation} className="mt-10">
+          <PendingOverlay label="Starting your conversation" />
           <div className="grid gap-3 sm:grid-cols-2">
             <label className="flex cursor-pointer flex-col gap-1 rounded-2xl border border-border bg-surface p-5 transition-colors hover:border-accent has-checked:border-accent has-checked:bg-accent-soft">
               <input

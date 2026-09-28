@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useTransition } from "react";
+import { LoadingBars } from "@/components/logo-loader";
 import { RecordingPlayer } from "@/components/recording-player";
 import { deleteConversation, deleteRecording } from "./actions";
 
@@ -61,8 +62,9 @@ export function RecordingSection({
               type="button"
               disabled={isPending}
               onClick={() => confirm(confirming)}
-              className="rounded-full bg-accent px-5 py-2.5 text-[14px] font-semibold text-white transition-colors hover:bg-accent-hover disabled:opacity-60"
+              className="flex items-center gap-2 rounded-full bg-accent px-5 py-2.5 text-[14px] font-semibold text-white transition-colors hover:bg-accent-hover disabled:opacity-60"
             >
+              {isPending && <LoadingBars height={13} />}
               {isPending ? "Deleting…" : COPY[confirming].confirm}
             </button>
             <button
