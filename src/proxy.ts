@@ -65,6 +65,25 @@ export async function proxy(request: NextRequest) {
     return NextResponse.redirect(url);
   }
 
+  // Someone already signed in who clicks "Sign in" or "Start Learning" on the
+  // landing page goes straight to their dashboard rather than the form, and
+  // the 30-second taster sends them to a real conversation instead. Only for
+  // page loads: the sign-in form's own POST must still reach its action.
+  const signedInRedirect: Record<string, string> = {
+    "/login": "/dashboard",
+    "/try": "/conversation/new",
+  };
+  const target = signedInRedirect[request.nextUrl.pathname];
+  if (user && target && request.method === "GET") {
+    const url = request.nextUrl.clone();
+    url.pathname = target;
+    url.search = "";
+    const redirect = NextResponse.redirect(url);
+    // Carry over any session cookies refreshed above, or they'd be lost.
+    supabaseResponse.cookies.getAll().forEach((cookie) => redirect.cookies.set(cookie));
+    return redirect;
+  }
+
   return supabaseResponse;
 }
 
