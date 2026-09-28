@@ -16,7 +16,8 @@ import { prepareTranslator, type TranslatorStatus } from "@/lib/translator";
 import { saveTranscript, type Turn } from "./actions";
 
 type Props = {
-  sessionId: string;
+  // Null for the landing page's taster, which has no account and saves nothing.
+  sessionId: string | null;
   languageLabel: string;
   direction: "ltr" | "rtl";
   targetLanguageCode: string;
@@ -27,6 +28,9 @@ type Props = {
   languageCodes: string[];
   keyterms: string[];
   voice: string;
+  // The public "Try it live" taster: the conversation is cut off after this
+  // many seconds and the visitor is asked to sign up.
+  trialSeconds?: number;
 };
 
 type Status =
@@ -35,7 +39,8 @@ type Status =
   | "live"
   | "ending"
   | "error"
-  | "save-failed";
+  | "save-failed"
+  | "trial-over";
 
 const SAMPLE_RATE = 24000;
 const ECHO_TAIL_MS = 300;
@@ -122,7 +127,9 @@ export function LiveConversation({
   languageCodes,
   keyterms,
   voice,
+  trialSeconds,
 }: Props) {
+  const trial = trialSeconds !== undefined;
   const router = useRouter();
 
   // Safe to read during render: the toggle only appears once a session is
@@ -540,7 +547,9 @@ export function LiveConversation({
     setError(null);
 
     try {
-      const response = await fetch("/api/voice/token");
+      const response = await fetch(
+        trial ? "/api/voice/trial-token" : "/api/voice/token",
+      );
       if (!response.ok) {
         const body = await response.json().catch(() => ({}));
         throw new Error(body.error ?? "Could not start the session.");
@@ -772,12 +781,18 @@ export function LiveConversation({
     targetLanguageCode,
     teardown,
     transcriptionPrompt,
+    trial,
     voice,
     commitAgentTurn,
     revealTo,
   ]);
 
   const save = useCallback(async () => {
+    // A taster has nowhere to save to: it ends on the sign-up panel instead.
+    if (trial || !sessionId) {
+      setStatus("trial-over");
+      return;
+    }
     setStatus("ending");
     // A reply cut off by the learner ending the session is still part of the
     // conversation, and transcriptRef is read below.
@@ -796,7 +811,7 @@ export function LiveConversation({
       return;
     }
     router.push(`/conversation/${sessionId}/analysis`);
-  }, [commitAgentTurn, router, sessionId]);
+  }, [commitAgentTurn, router, sessionId, trial]);
 
   useEffect(() => {
     saveRef.current = save;
@@ -815,6 +830,19 @@ export function LiveConversation({
     const timer = setInterval(() => setElapsed((value) => value + 1), 1000);
     return () => clearInterval(timer);
   }, [status]);
+
+  // The taster's cut-off, counted from the moment the session went live. The
+  // trial token also ends the session on the service's side a little later,
+  // so this can't be stretched from the page.
+  const endRef = useRef(end);
+  useEffect(() => {
+    endRef.current = end;
+  }, [end]);
+  useEffect(() => {
+    if (!trial || status !== "live") return;
+    const cutoff = setTimeout(() => void endRef.current(), (trialSeconds ?? 0) * 1000);
+    return () => clearTimeout(cutoff);
+  }, [status, trial, trialSeconds]);
 
   useEffect(() => {
     if (status !== "live") return;
@@ -861,6 +889,7 @@ export function LiveConversation({
 
   const minutes = String(Math.floor(elapsed / 60)).padStart(2, "0");
   const seconds = String(elapsed % 60).padStart(2, "0");
+  const secondsLeft = Math.max(0, (trialSeconds ?? 0) - elapsed);
 
   // Keeps the newest line in view as the conversation grows, unless the
   // learner has scrolled up to reread something: then it waits until they
@@ -939,7 +968,11 @@ export function LiveConversation({
               </svg>
             </button>
           )}
-          <Link href="/dashboard" aria-label="VOCES dashboard" className="flex items-center gap-2">
+          <Link
+            href={trial ? "/" : "/dashboard"}
+            aria-label={trial ? "VOCES home" : "VOCES dashboard"}
+            className="flex items-center gap-2"
+          >
             <svg width="22" height="22" viewBox="0 0 48 48" fill="#FFFFFF" aria-hidden>
               <rect x="0" y="17" width="6" height="14" rx="3" />
               <rect x="10.5" y="9" width="6" height="30" rx="3" />
@@ -951,11 +984,16 @@ export function LiveConversation({
               VOCES
             </span>
           </Link>
-          {status === "live" && (
-            <span className="hidden text-[13px] font-medium text-white/70 tabular-nums sm:inline">
-              {minutes}:{seconds}
-            </span>
-          )}
+          {status === "live" &&
+            (trial ? (
+              <span className="rounded-full bg-[#DB611C] px-3 py-1 text-[13px] font-semibold tabular-nums">
+                0:{String(secondsLeft).padStart(2, "0")} left
+              </span>
+            ) : (
+              <span className="hidden text-[13px] font-medium text-white/70 tabular-nums sm:inline">
+                {minutes}:{seconds}
+              </span>
+            ))}
         </div>
 
         <div className="flex items-center gap-2.5 md:gap-3.5">
@@ -1001,7 +1039,7 @@ export function LiveConversation({
             </span>
           ) : (
             <Link
-              href="/settings"
+              href={trial ? "/try" : "/settings"}
               className="flex h-10 items-center gap-2.5 rounded-full bg-[#1C1610]/40 pr-4 pl-2 backdrop-blur-sm transition-colors hover:bg-[#1C1610]/60 md:h-11"
             >
               <Flag code={targetLanguageCode} size={28} />
@@ -1032,11 +1070,12 @@ export function LiveConversation({
       {status === "idle" && (
         <CenteredPanel>
           <h1 className="text-[32px] leading-tight font-bold tracking-[-0.02em] md:text-[40px]">
-            Ready when you are
+            {trial ? `${trialSeconds} seconds with the VOCES AI` : "Ready when you are"}
           </h1>
           <p className="mt-3 max-w-[420px] text-[16px] leading-relaxed text-white/80">
-            Speak naturally. If a word escapes you, say it in your own language
-            and keep going — you&apos;ll be understood.
+            {trial
+              ? `Speak ${languageLabel} out loud with the AI, no account needed. If a word escapes you, say it in your own language and keep going.`
+              : "Speak naturally. If a word escapes you, say it in your own language and keep going — you’ll be understood."}
           </p>
           <button
             onClick={start}
@@ -1045,6 +1084,31 @@ export function LiveConversation({
             <MicIcon size={24} />
             Start the conversation
           </button>
+        </CenteredPanel>
+      )}
+
+      {status === "trial-over" && (
+        <CenteredPanel>
+          <h1 className="text-[32px] leading-tight font-bold tracking-[-0.02em] md:text-[40px]">
+            That&apos;s your {trialSeconds} seconds
+          </h1>
+          <p className="mt-3 max-w-[440px] text-[16px] leading-relaxed text-white/80">
+            Sign up free to keep talking. You&apos;ll get unlimited
+            conversations, a review of everything you said, and the words you
+            reached for saved as flashcards.
+          </p>
+          <Link
+            href="/login?mode=signup"
+            className="mt-8 flex h-[60px] items-center rounded-full bg-[#DB611C] px-8 text-lg font-semibold shadow-[0_16px_40px_rgba(238,112,33,0.38)] transition-colors hover:bg-[#C74D17]"
+          >
+            Sign up to keep talking
+          </Link>
+          <Link
+            href="/try"
+            className="mt-4 text-[15px] font-medium text-white/80 underline-offset-4 hover:text-white hover:underline"
+          >
+            Try another language
+          </Link>
         </CenteredPanel>
       )}
 

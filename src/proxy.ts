@@ -1,8 +1,18 @@
 import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
 
-// Everything else requires a signed-in user.
-const PUBLIC_PATHS = ["/", "/login", "/auth"];
+// Everything else requires a signed-in user. /try is the landing page's
+// 30-second taster, which runs without an account, so it also needs its token
+// route and the two audio worklets the conversation loads.
+const PUBLIC_PATHS = [
+  "/",
+  "/login",
+  "/auth",
+  "/try",
+  "/api/voice/trial-token",
+  "/pcm-processor.js",
+  "/playback-processor.js",
+];
 
 function isPublic(pathname: string) {
   return PUBLIC_PATHS.some(

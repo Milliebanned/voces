@@ -421,16 +421,30 @@ export default function Home() {
               review, lasting progress.
             </p>
 
-            <Link
-              href="/login"
-              className="mt-9 flex h-[71px] w-full items-center justify-center gap-5 rounded-full px-10 text-white shadow-[0_16px_34px_rgba(196,80,22,0.32)] transition-colors hover:bg-[#C74D17] sm:h-[78px] sm:w-[297px] sm:justify-between sm:pl-[52px]"
-              style={{ background: CTA }}
-            >
-              <span className="text-lg font-semibold tracking-[0.005em] sm:text-[21px]">
-                Start Learning
-              </span>
-              <Arrow />
-            </Link>
+            <div className="mt-9 flex flex-col gap-3 sm:flex-row sm:items-center sm:gap-5">
+              <Link
+                href="/login"
+                className="flex h-[71px] w-full items-center justify-center gap-5 rounded-full px-10 text-white shadow-[0_16px_34px_rgba(196,80,22,0.32)] transition-colors hover:bg-[#C74D17] sm:h-[78px] sm:w-[297px] sm:justify-between sm:pl-[52px]"
+                style={{ background: CTA }}
+              >
+                <span className="text-lg font-semibold tracking-[0.005em] sm:text-[21px]">
+                  Start Learning
+                </span>
+                <Arrow />
+              </Link>
+              {/* A taste before signing up: a real 30-second conversation. */}
+              <Link
+                href="/try"
+                className="flex h-[60px] items-center justify-center gap-3 rounded-full border-2 border-[#D9601C]/35 bg-card/70 px-7 text-[17px] font-semibold text-ink backdrop-blur-sm transition-colors hover:border-[#D9601C] sm:h-[78px]"
+              >
+                <span className="relative flex size-2.5">
+                  <span className="absolute inset-0 animate-ping rounded-full bg-[#ED6A28]/60 motion-reduce:animate-none" />
+                  <span className="relative size-2.5 rounded-full bg-[#ED6A28]" />
+                </span>
+                Try it live
+                <span className="text-[15px] font-medium text-mute">30 sec</span>
+              </Link>
+            </div>
 
             <ul
               id="languages"
