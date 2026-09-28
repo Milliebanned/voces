@@ -1,3 +1,4 @@
+import { cookies, headers } from "next/headers";
 import Link from "next/link";
 import { Flag } from "@/components/flag";
 import { Wordmark } from "@/components/wordmark";
@@ -10,6 +11,7 @@ import {
   voiceFor,
 } from "@/lib/languages";
 import { buildSystemPrompt, buildTranscriptionPrompt } from "@/lib/prompt";
+import { TRIAL_COOKIE, addressHasTried, visitorAddress } from "@/lib/trial";
 import { LiveConversation } from "../conversation/[id]/live-conversation";
 
 // How long the landing page's taster lasts before asking for a sign-up.
@@ -20,6 +22,15 @@ export const metadata = {
 };
 
 export default async function TryPage({ searchParams }: PageProps<"/try">) {
+  // One try per visitor: after it, this page only offers the sign-up.
+  const [cookieStore, headerList] = await Promise.all([cookies(), headers()]);
+  if (
+    cookieStore.has(TRIAL_COOKIE) ||
+    (await addressHasTried(visitorAddress(headerList)))
+  ) {
+    return <TrialUsed />;
+  }
+
   const params = await searchParams;
   const learn = typeof params.learn === "string" ? params.learn : null;
   const speak = typeof params.speak === "string" ? params.speak : null;
@@ -112,6 +123,43 @@ export default async function TryPage({ searchParams }: PageProps<"/try">) {
           You&apos;ll need a microphone. Works best in Chrome.
         </p>
       </form>
+    </main>
+  );
+}
+
+function TrialUsed() {
+  return (
+    <main className="landing-sky flex min-h-dvh flex-1 flex-col">
+      <header className="mx-auto flex w-full max-w-[880px] items-center justify-between px-5 py-6">
+        <Link href="/" aria-label="VOCES home">
+          <Wordmark />
+        </Link>
+        <Link href="/login" className="text-[15px] font-medium text-mute transition-colors hover:text-ink">
+          Sign in
+        </Link>
+      </header>
+      <div className="mx-auto flex max-w-[520px] flex-1 flex-col items-center justify-center px-5 pb-24 text-center">
+        <p className="text-[13px] font-semibold tracking-[0.14em] text-[#ED6A28] uppercase">
+          Free try used
+        </p>
+        <h1 className="mt-3 text-[32px] leading-[1.2] font-bold tracking-[-0.025em] sm:text-[40px]">
+          You&apos;ve had your {TRIAL_SECONDS} seconds
+        </h1>
+        <p className="mt-4 text-[17px] leading-7 text-mute">
+          Sign up free to keep talking. You&apos;ll get unlimited
+          conversations, a review of everything you said, and the words you
+          reached for saved as flashcards.
+        </p>
+        <Link
+          href="/login?mode=signup"
+          className="mt-8 grid h-[60px] w-full place-items-center rounded-full bg-[#DB611C] text-lg font-semibold text-white shadow-[0_12px_26px_rgba(160,64,14,0.24)] transition-colors hover:bg-[#C74D17] sm:w-72"
+        >
+          Sign up to keep talking
+        </Link>
+        <Link href="/login" className="mt-4 text-[15px] font-medium text-mute hover:text-ink">
+          Already have an account? Sign in
+        </Link>
+      </div>
     </main>
   );
 }

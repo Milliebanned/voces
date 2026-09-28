@@ -552,6 +552,13 @@ export function LiveConversation({
       );
       if (!response.ok) {
         const body = await response.json().catch(() => ({}));
+        // The free try is spent (another tab, or a reload): straight to the
+        // sign-up panel rather than an error with a retry button.
+        if (trial && response.status === 403) {
+          teardown();
+          setStatus("trial-over");
+          return;
+        }
         throw new Error(body.error ?? "Could not start the session.");
       }
       const { token } = await response.json();
@@ -1104,10 +1111,10 @@ export function LiveConversation({
             Sign up to keep talking
           </Link>
           <Link
-            href="/try"
+            href="/login"
             className="mt-4 text-[15px] font-medium text-white/80 underline-offset-4 hover:text-white hover:underline"
           >
-            Try another language
+            Already have an account? Sign in
           </Link>
         </CenteredPanel>
       )}
