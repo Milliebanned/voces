@@ -1,6 +1,5 @@
 "use server";
 
-import { revalidatePath } from "next/cache";
 import { endFreeSession } from "@/lib/billing";
 import { createClient, currentUser } from "@/lib/supabase/server";
 
@@ -34,6 +33,10 @@ export async function saveTranscript(
   const user = await currentUser(supabase);
   if (user) await endFreeSession(user.id, sessionId);
 
-  revalidatePath("/dashboard");
+  // No revalidatePath here. Revalidating from a Server Action also refreshes
+  // the page it was called from, and this page redirects an ended session to
+  // its review, which overrode the "free minutes are up" panel. The dashboard
+  // is dynamic and dynamic pages aren't held in the client cache, so it is
+  // fresh on the next visit anyway.
   return { error: null };
 }
