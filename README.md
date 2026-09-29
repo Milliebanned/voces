@@ -39,6 +39,7 @@ Premium is a subscription sold through [RevenueCat Web Billing](https://www.reve
 
 - The `/premium` page uses the RevenueCat web SDK (`@revenuecat/purchases-js`) to load the current offering and run the checkout. The RevenueCat app user ID is the learner's Supabase user ID, so Premium belongs to the account, not the browser.
 - The server checks the `premium` entitlement through the RevenueCat REST API before minting every voice token, so the limit can't be bypassed from the page.
+- Promo codes are RevenueCat Billing discount codes, from a percentage off up to 100%. They can be typed on `/premium`, entered in the checkout itself, or shared as a link such as `/premium?code=WELCOME100`.
 - Free usage is counted on the server when each session's token is minted and when it ends. It is kept where learners can't write to it, and the voice token itself is capped at the time that's left.
 
 **Trying Premium:** the demo deployment runs on RevenueCat's Test Store, so no real payment is taken. Choose **Go Premium**, then **Test valid purchase** in the checkout. Test subscriptions renew on an accelerated schedule.

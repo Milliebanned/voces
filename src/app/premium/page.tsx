@@ -7,7 +7,8 @@ import { FREE_SECONDS } from "@/lib/billing";
 import { createClient, currentUser } from "@/lib/supabase/server";
 import { PremiumCheckout } from "./premium-checkout";
 
-export default async function PremiumPage() {
+export default async function PremiumPage({ searchParams }: PageProps<"/premium">) {
+  const { code } = await searchParams;
   const supabase = await createClient();
   const user = await currentUser(supabase);
 
@@ -40,6 +41,7 @@ export default async function PremiumPage() {
           appUserId={user.id}
           apiKey={process.env.NEXT_PUBLIC_REVENUECAT_WEB_KEY ?? null}
           premium={plan.premium}
+          initialCode={typeof code === "string" ? code : ""}
         />
 
         <Link

@@ -59,16 +59,20 @@ export function PremiumCheckout({
   appUserId,
   apiKey,
   premium,
+  initialCode,
 }: {
   appUserId: string;
   apiKey: string | null;
   premium: boolean;
+  // A promo code from the link that brought them here (?code=...).
+  initialCode: string;
 }) {
   const router = useRouter();
   const [pkg, setPkg] = useState<Package | null>(null);
   const [manageUrl, setManageUrl] = useState<string | null>(null);
   const [loading, setLoading] = useState(Boolean(apiKey));
   const [buying, setBuying] = useState(false);
+  const [code, setCode] = useState(initialCode);
   const [error, setError] = useState<string | null>(
     apiKey ? null : "Premium checkout isn't set up on this server yet.",
   );
@@ -105,7 +109,14 @@ export function PremiumCheckout({
     setBuying(true);
     setError(null);
     try {
-      await purchases(apiKey, appUserId).purchase({ rcPackage: pkg });
+      // Promo codes are RevenueCat discount codes, from a percentage off up to
+      // 100%. One typed here is applied up front, and the checkout also offers
+      // its own field for anyone who didn't.
+      await purchases(apiKey, appUserId).purchase({
+        rcPackage: pkg,
+        showDiscountCodeField: true,
+        discountCode: code.trim() || undefined,
+      });
       router.push("/dashboard");
       router.refresh();
     } catch (cause) {
@@ -172,15 +183,32 @@ export function PremiumCheckout({
               </a>
             )
           ) : (
-            <button
-              type="button"
-              onClick={buy}
-              disabled={!pkg || buying}
-              className="flex h-[52px] w-full items-center justify-center rounded-full text-[16px] font-semibold text-white transition-colors hover:bg-[#B94A13] disabled:opacity-60"
-              style={{ background: ACCENT }}
-            >
-              {buying ? "Opening checkout…" : "Go Premium"}
-            </button>
+            <>
+              <label className="mb-3 flex flex-col gap-1.5">
+                <span className="text-[13px] font-semibold">
+                  Promo code <span className="font-normal text-mute">(optional)</span>
+                </span>
+                <input
+                  type="text"
+                  value={code}
+                  onChange={(event) => setCode(event.target.value)}
+                  autoCapitalize="characters"
+                  autoComplete="off"
+                  spellCheck={false}
+                  placeholder="Enter a code"
+                  className="h-12 rounded-2xl border border-line bg-card-2 px-4 text-[15px] tracking-[0.04em] uppercase outline-none placeholder:tracking-normal placeholder:normal-case placeholder:text-mute focus:border-[#DA5C1B]"
+                />
+              </label>
+              <button
+                type="button"
+                onClick={buy}
+                disabled={!pkg || buying}
+                className="flex h-[52px] w-full items-center justify-center rounded-full text-[16px] font-semibold text-white transition-colors hover:bg-[#B94A13] disabled:opacity-60"
+                style={{ background: ACCENT }}
+              >
+                {buying ? "Opening checkout…" : "Go Premium"}
+              </button>
+            </>
           )}
           {error && (
             <p role="alert" className="mt-3 text-[13px] leading-relaxed text-[#C2410C] dark:text-[#F7B98E]">
