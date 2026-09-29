@@ -15,7 +15,8 @@ import {
 import { completeOnboarding } from "./actions";
 
 const ORANGE = "#ED6A28";
-const STEPS = 3;
+// New accounts also choose a plan; returning learners only edit their details.
+const DETAIL_STEPS = 3;
 
 type Initial = {
   displayName: string;
@@ -45,6 +46,19 @@ function EmptyCheck() {
 }
 
 // Shared card chrome for every choice in the flow, selected or not.
+const PLANS = [
+  {
+    value: "free",
+    label: "Start free",
+    hint: "5 minutes of conversation with the VOCES AI, to see how it feels. Upgrade any time.",
+  },
+  {
+    value: "premium",
+    label: "Go Premium",
+    hint: "Unlimited conversations with the VOCES AI, in every language you learn.",
+  },
+] as const;
+
 function choiceClass(selected: boolean) {
   return `relative flex cursor-pointer items-center gap-4 rounded-[18px] px-5 transition-colors has-[:focus-visible]:ring-2 has-[:focus-visible]:ring-[#ED6A28]/40 ${
     selected
@@ -173,7 +187,13 @@ function LanguageStep({
   );
 }
 
-function FinishButton({ returning }: { returning: boolean }) {
+function FinishButton({
+  returning,
+  premium,
+}: {
+  returning: boolean;
+  premium: boolean;
+}) {
   const { pending } = useFormStatus();
   return (
     <button
@@ -181,7 +201,13 @@ function FinishButton({ returning }: { returning: boolean }) {
       disabled={pending}
       className="grid h-[60px] w-full place-items-center rounded-full bg-[#DB611C] text-lg font-semibold tracking-[0.01em] text-white shadow-[0_12px_26px_rgba(160,64,14,0.24)] transition-colors hover:bg-[#C74D17] disabled:opacity-70 sm:w-60"
     >
-      {pending ? "Saving…" : returning ? "Save changes" : "Start speaking"}
+      {pending
+        ? "Saving…"
+        : returning
+          ? "Save changes"
+          : premium
+            ? "Continue to Premium"
+            : "Start free"}
     </button>
   );
 }
@@ -199,6 +225,8 @@ export function OnboardingFlow({
   const [target, setTarget] = useState(initial.targetLanguage);
   const [native, setNative] = useState(initial.nativeLanguage);
   const [level, setLevel] = useState(initial.skillLevel);
+  const [plan, setPlan] = useState<"free" | "premium">("free");
+  const STEPS = returning ? DETAIL_STEPS : DETAIL_STEPS + 1;
 
   // Each step is a new screen, so it should open at its top.
   useEffect(() => {
@@ -321,7 +349,7 @@ export function OnboardingFlow({
               A little about you
             </h1>
             <p className="mt-3 text-center text-[17px] leading-7 text-mute sm:text-[19px]">
-              So your partner speaks at the right level
+              So the VOCES AI speaks at the right level
             </p>
 
             <label className="mt-9 flex flex-col gap-2">
@@ -380,6 +408,45 @@ export function OnboardingFlow({
               />
             </label>
           </div>
+
+          {!returning && (
+            <div hidden={step !== 3} className="mx-auto max-w-[560px]">
+              <h1 className="text-center text-[32px] leading-[1.2] font-bold tracking-[-0.025em] sm:text-[40px]">
+                Choose your plan
+              </h1>
+              <p className="mt-3 text-center text-[17px] leading-7 text-mute sm:text-[19px]">
+                Start free, or go Premium for unlimited conversations
+              </p>
+
+              <fieldset className="mt-9 flex flex-col gap-3">
+                <legend className="sr-only">Plan</legend>
+                {PLANS.map((option) => {
+                  const selected = option.value === plan;
+                  return (
+                    <label key={option.value} className={`${choiceClass(selected)} py-4`}>
+                      <input
+                        type="radio"
+                        name="plan"
+                        value={option.value}
+                        checked={selected}
+                        onChange={() => setPlan(option.value)}
+                        className="sr-only"
+                      />
+                      <span className="flex flex-1 flex-col gap-1">
+                        <span className="text-[17px] font-semibold text-ink">
+                          {option.label}
+                        </span>
+                        <span className="text-sm leading-relaxed text-mute">
+                          {option.hint}
+                        </span>
+                      </span>
+                      {selected ? <Check /> : <EmptyCheck />}
+                    </label>
+                  );
+                })}
+              </fieldset>
+            </div>
+          )}
         </div>
 
         <div className="mt-10 flex justify-center">
@@ -392,7 +459,7 @@ export function OnboardingFlow({
               Continue
             </button>
           ) : (
-            <FinishButton returning={returning} />
+            <FinishButton returning={returning} premium={plan === "premium"} />
           )}
         </div>
       </form>

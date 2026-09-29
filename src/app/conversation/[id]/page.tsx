@@ -2,6 +2,7 @@ import { notFound, redirect } from "next/navigation";
 import { languageName, textDirection, voiceFor } from "@/lib/languages";
 import { buildSystemPrompt, buildTranscriptionPrompt } from "@/lib/prompt";
 import { scenarioPrompt } from "@/lib/scenarios";
+import { freeSecondsLeft, isPremium } from "@/lib/billing";
 import { createClient, currentUser } from "@/lib/supabase/server";
 import { selectReinforcementCandidates } from "@/lib/vocabulary";
 import { LiveConversation } from "./live-conversation";
@@ -25,7 +26,7 @@ export default async function ConversationPage({
   if (!session) notFound();
   if (session.status !== "active") redirect(`/conversation/${id}/analysis`);
 
-  const [{ data: profile }, { data: vocabulary }, { data: memory }] =
+  const [{ data: profile }, { data: vocabulary }, { data: memory }, premium] =
     await Promise.all([
       supabase
         .from("profiles")
@@ -45,9 +46,12 @@ export default async function ConversationPage({
         .select("topics_discussed")
         .eq("target_language", session.target_language)
         .maybeSingle(),
+      isPremium(user.id),
     ]);
 
   if (!profile) redirect("/onboarding");
+
+  const freeLeft = premium ? null : await freeSecondsLeft(user.id);
 
   const reinforcement = selectReinforcementCandidates(vocabulary ?? []);
 
@@ -67,6 +71,7 @@ export default async function ConversationPage({
   return (
     <LiveConversation
       sessionId={session.id}
+      freeSecondsLeft={freeLeft}
       languageLabel={languageName(session.target_language)!}
       direction={textDirection(session.target_language)}
       targetLanguageCode={session.target_language}

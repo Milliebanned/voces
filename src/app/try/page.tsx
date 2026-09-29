@@ -146,9 +146,9 @@ function TrialUsed() {
           You&apos;ve had your {TRIAL_SECONDS} seconds
         </h1>
         <p className="mt-4 text-[17px] leading-7 text-mute">
-          Sign up free to keep talking. You&apos;ll get unlimited
-          conversations, a review of everything you said, and the words you
-          reached for saved as flashcards.
+          Sign up free for 5 more minutes of conversation, a review of
+          everything you said, and the words you reached for saved as
+          flashcards. Go Premium any time for unlimited conversations.
         </p>
         <Link
           href="/login?mode=signup"

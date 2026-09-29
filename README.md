@@ -2,9 +2,7 @@
 
 **Practice the language by actually speaking it.**
 
-VOCES is a voice-first language immersion platform. Instead of drilling flashcards and hoping the words show up in real life, you hold real spoken conversations with an AI partner — and the vocabulary you struggle with comes back to you in later conversations until it sticks.
-
-Built for the [AssemblyAI Voice Agent Hackathon](https://lablab.ai/ai-hackathons/assemblyai-voice-agent-hackathon).
+VOCES is a voice-first language immersion platform. Instead of drilling flashcards and hoping the words show up in real life, you hold real spoken conversations with an AI — and the vocabulary you struggle with comes back to you in later conversations until it sticks.
 
 ## The problem
 
@@ -28,12 +26,30 @@ Three things make it different from a chatbot with a microphone:
 
 **It remembers.** Every session updates a learner profile — which words you use confidently, which you avoid, which mistakes repeat. Later conversations are steered to create natural openings for the vocabulary you are weakest on.
 
+## Plans
+
+| | Free | Premium |
+| --- | --- | --- |
+| Conversation with the VOCES AI | 5 minutes in total | Unlimited |
+| Post-session review, flashcards, vocabulary memory | ✓ | ✓ |
+
+New accounts choose a plan as the last step of sign-up, and the dashboard always shows how many free minutes are left, with an **Upgrade to Premium** button. When the free minutes run out mid-conversation, the conversation is saved and VOCES offers Premium before the review.
+
+Premium is a subscription sold through [RevenueCat Web Billing](https://www.revenuecat.com/docs/web/web-billing/overview):
+
+- The `/premium` page uses the RevenueCat web SDK (`@revenuecat/purchases-js`) to load the current offering and run the checkout. The RevenueCat app user ID is the learner's Supabase user ID, so Premium belongs to the account, not the browser.
+- The server checks the `premium` entitlement through the RevenueCat REST API before minting every voice token, so the limit can't be bypassed from the page.
+- Free usage is counted on the server when each session's token is minted and when it ends. It is kept where learners can't write to it, and the voice token itself is capped at the time that's left.
+
+**Trying Premium:** the demo deployment runs RevenueCat in sandbox mode. Use Stripe's test card `4242 4242 4242 4242`, with any future expiry date and any CVC. Nothing is charged.
+
 ## Architecture
 
 | Layer | Technology |
 | --- | --- |
 | Real-time voice | [AssemblyAI Voice Agent API](https://www.assemblyai.com/docs/voice-agents/voice-agent-api) — speech-to-text, LLM and text-to-speech over a single WebSocket |
 | Session analysis | [AssemblyAI LLM Gateway](https://www.assemblyai.com/docs/llm-gateway/api-reference/create-chat-completion) — structured grammar/vocabulary review of the full transcript |
+| Subscriptions | [RevenueCat Web Billing](https://www.revenuecat.com/docs/web/web-billing/overview) — Premium checkout and entitlements |
 | App | Next.js (App Router, TypeScript), Tailwind CSS |
 | Data & auth | Supabase (Postgres + Auth, row-level security) |
 | Hosting | Vercel |
@@ -57,12 +73,16 @@ npm run dev
 | `NEXT_PUBLIC_SUPABASE_URL` | Supabase project settings → API |
 | `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` | Supabase project settings → API Keys → publishable key |
 | `SUPABASE_SECRET_KEY` | Supabase project settings → API Keys → secret key — server-side only, never expose |
+| `NEXT_PUBLIC_REVENUECAT_WEB_KEY` | RevenueCat project settings → API keys → Web Billing public key (sandbox key for testing) |
+| `REVENUECAT_SECRET_KEY` | RevenueCat project settings → API keys → secret key — server-side only |
+
+In Supabase, create two private Storage buckets, `trial-visitors` and `free-usage`, and apply the SQL in `supabase/migrations`. In RevenueCat, create a `premium` entitlement and a current offering containing the Premium product.
 
 The app runs at `http://localhost:3000`.
 
 ## Status
 
-Early development, built during the hackathon window. See the commit history for progress.
+Actively developed. See the commit history for progress.
 
 ## Licence
 

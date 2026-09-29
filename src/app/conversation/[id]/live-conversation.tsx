@@ -31,6 +31,9 @@ type Props = {
   // The public "Try it live" taster: the conversation is cut off after this
   // many seconds and the visitor is asked to sign up.
   trialSeconds?: number;
+  // A free account's conversation seconds left, or null on Premium. Each
+  // session is cut off when they run out and the learner is offered Premium.
+  freeSecondsLeft?: number | null;
 };
 
 type Status =
@@ -40,7 +43,11 @@ type Status =
   | "ending"
   | "error"
   | "save-failed"
-  | "trial-over";
+  | "trial-over"
+  | "upgrade";
+
+// Below this, a free account can't start another conversation.
+const MIN_FREE_SECONDS = 10;
 
 const SAMPLE_RATE = 24000;
 const ECHO_TAIL_MS = 300;
@@ -128,8 +135,13 @@ export function LiveConversation({
   keyterms,
   voice,
   trialSeconds,
+  freeSecondsLeft = null,
 }: Props) {
   const trial = trialSeconds !== undefined;
+  // The free allowance this session may use, as the token route reports it.
+  const [freeLimit, setFreeLimit] = useState<number | null>(null);
+  const freeTimeUpRef = useRef(false);
+  const [freeTimeUp, setFreeTimeUp] = useState(false);
   const router = useRouter();
 
   // Safe to read during render: the toggle only appears once a session is
@@ -161,7 +173,11 @@ export function LiveConversation({
     });
   }, []);
 
-  const [status, setStatus] = useState<Status>("idle");
+  const [status, setStatus] = useState<Status>(() =>
+    freeSecondsLeft !== null && freeSecondsLeft < MIN_FREE_SECONDS
+      ? "upgrade"
+      : "idle",
+  );
   const [error, setError] = useState<string | null>(null);
   const [turns, setTurns] = useState<Turn[]>([]);
   const [partial, setPartial] = useState("");
@@ -545,10 +561,13 @@ export function LiveConversation({
 
     setStatus("connecting");
     setError(null);
+    setElapsed(0);
 
     try {
       const response = await fetch(
-        trial ? "/api/voice/trial-token" : "/api/voice/token",
+        trial
+          ? "/api/voice/trial-token"
+          : `/api/voice/token?session=${encodeURIComponent(sessionId ?? "")}`,
       );
       if (!response.ok) {
         const body = await response.json().catch(() => ({}));
@@ -559,9 +578,16 @@ export function LiveConversation({
           setStatus("trial-over");
           return;
         }
+        // Likewise when a free account's minutes are used up.
+        if (response.status === 402) {
+          teardown();
+          setStatus("upgrade");
+          return;
+        }
         throw new Error(body.error ?? "Could not start the session.");
       }
-      const { token } = await response.json();
+      const { token, remainingSeconds } = await response.json();
+      setFreeLimit(typeof remainingSeconds === "number" ? remainingSeconds : null);
 
       // Echo cancellation is what lets a learner talk over the agent on a
       // laptop's own speakers, but on macOS Chrome it is also known to pull the
@@ -780,6 +806,7 @@ export function LiveConversation({
       teardown();
     }
   }, [
+    sessionId,
     handleMessage,
     keyterms,
     languageCodes,
@@ -817,6 +844,12 @@ export function LiveConversation({
       setStatus("save-failed");
       return;
     }
+    // Cut off by the free allowance: offer Premium before the review.
+    if (freeTimeUpRef.current) {
+      setFreeTimeUp(true);
+      setStatus("upgrade");
+      return;
+    }
     router.push(`/conversation/${sessionId}/analysis`);
   }, [commitAgentTurn, router, sessionId, trial]);
 
@@ -850,6 +883,17 @@ export function LiveConversation({
     const cutoff = setTimeout(() => void endRef.current(), (trialSeconds ?? 0) * 1000);
     return () => clearTimeout(cutoff);
   }, [status, trial, trialSeconds]);
+
+  // A free account's cut-off works the same way: the token route caps the
+  // session on the service's side too.
+  useEffect(() => {
+    if (freeLimit === null || status !== "live") return;
+    const cutoff = setTimeout(() => {
+      freeTimeUpRef.current = true;
+      void endRef.current();
+    }, freeLimit * 1000);
+    return () => clearTimeout(cutoff);
+  }, [freeLimit, status]);
 
   useEffect(() => {
     if (status !== "live") return;
@@ -897,6 +941,7 @@ export function LiveConversation({
   const minutes = String(Math.floor(elapsed / 60)).padStart(2, "0");
   const seconds = String(elapsed % 60).padStart(2, "0");
   const secondsLeft = Math.max(0, (trialSeconds ?? 0) - elapsed);
+  const freeLeftLabel = formatFreeTime(Math.max(0, (freeLimit ?? 0) - elapsed));
 
   // Keeps the newest line in view as the conversation grows, unless the
   // learner has scrolled up to reread something: then it waits until they
@@ -996,6 +1041,10 @@ export function LiveConversation({
               <span className="rounded-full bg-[#DB611C] px-3 py-1 text-[13px] font-semibold tabular-nums">
                 0:{String(secondsLeft).padStart(2, "0")} left
               </span>
+            ) : freeLimit !== null ? (
+              <span className="rounded-full bg-[#DB611C] px-3 py-1 text-[13px] font-semibold tabular-nums">
+                {freeLeftLabel} free left
+              </span>
             ) : (
               <span className="hidden text-[13px] font-medium text-white/70 tabular-nums sm:inline">
                 {minutes}:{seconds}
@@ -1084,6 +1133,14 @@ export function LiveConversation({
               ? `Speak ${languageLabel} out loud with the AI, no account needed. If a word escapes you, say it in your own language and keep going.`
               : "Speak naturally. If a word escapes you, say it in your own language and keep going — you’ll be understood."}
           </p>
+          {freeSecondsLeft !== null && (
+            <p className="mt-4 rounded-full bg-black/30 px-4 py-2 text-[14px] font-medium text-white/85 backdrop-blur-sm">
+              {formatFreeTime(freeSecondsLeft)} of free conversation left ·{" "}
+              <Link href="/premium" className="font-semibold text-[#F7B98E] underline-offset-4 hover:underline">
+                Go Premium
+              </Link>
+            </p>
+          )}
           <button
             onClick={start}
             className="mt-8 flex h-[60px] items-center gap-3 rounded-full bg-[#DB611C] pr-8 pl-6 text-lg font-semibold shadow-[0_16px_40px_rgba(238,112,33,0.38)] transition-colors hover:bg-[#C74D17]"
@@ -1100,9 +1157,9 @@ export function LiveConversation({
             That&apos;s your {trialSeconds} seconds
           </h1>
           <p className="mt-3 max-w-[440px] text-[16px] leading-relaxed text-white/80">
-            Sign up free to keep talking. You&apos;ll get unlimited
-            conversations, a review of everything you said, and the words you
-            reached for saved as flashcards.
+            Sign up free for 5 more minutes of conversation, a review of
+            everything you said, and the words you reached for saved as
+            flashcards. Go Premium any time for unlimited conversations.
           </p>
           <Link
             href="/login?mode=signup"
@@ -1115,6 +1172,35 @@ export function LiveConversation({
             className="mt-4 text-[15px] font-medium text-white/80 underline-offset-4 hover:text-white hover:underline"
           >
             Already have an account? Sign in
+          </Link>
+        </CenteredPanel>
+      )}
+
+      {status === "upgrade" && (
+        <CenteredPanel>
+          <h1 className="text-[32px] leading-tight font-bold tracking-[-0.02em] md:text-[40px]">
+            Your 5 free minutes are up
+          </h1>
+          <p className="mt-3 max-w-[440px] text-[16px] leading-relaxed text-white/80">
+            Go Premium to keep talking with the VOCES AI: unlimited
+            conversations, a review of everything you said, and your weak words
+            brought back until they stick.
+          </p>
+          <Link
+            href="/premium"
+            className="mt-8 flex h-[60px] items-center rounded-full bg-[#DB611C] px-8 text-lg font-semibold shadow-[0_16px_40px_rgba(238,112,33,0.38)] transition-colors hover:bg-[#C74D17]"
+          >
+            Go Premium
+          </Link>
+          <Link
+            href={
+              freeTimeUp && sessionId
+                ? `/conversation/${sessionId}/analysis`
+                : "/dashboard"
+            }
+            className="mt-4 text-[15px] font-medium text-white/80 underline-offset-4 hover:text-white hover:underline"
+          >
+            {freeTimeUp ?"See the review of this conversation" : "Back to the dashboard"}
           </Link>
         </CenteredPanel>
       )}
@@ -1283,6 +1369,10 @@ export function LiveConversation({
       )}
     </main>
   );
+}
+
+function formatFreeTime(seconds: number) {
+  return `${Math.floor(seconds / 60)}:${String(seconds % 60).padStart(2, "0")}`;
 }
 
 function CenteredPanel({ children }: { children: ReactNode }) {

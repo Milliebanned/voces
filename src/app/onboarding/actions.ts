@@ -25,5 +25,6 @@ export async function completeOnboarding(formData: FormData) {
   if (error) throw new Error(error.message);
 
   revalidatePath("/", "layout");
-  redirect("/dashboard");
+  // New accounts choose a plan as the last step of onboarding.
+  redirect(formData.get("plan") === "premium" ? "/premium" : "/dashboard");
 }

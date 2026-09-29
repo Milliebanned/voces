@@ -96,12 +96,15 @@ export function AppShell({
   name,
   targetLanguage,
   level,
+  planChip,
   children,
 }: {
   active: Tab;
   name: string | null;
   targetLanguage: string;
   level: string | null;
+  // The learner's plan, shown above the language in the sidebar.
+  planChip?: ReactNode;
   children: ReactNode;
 }) {
   return (
@@ -133,9 +136,11 @@ export function AppShell({
             })}
           </nav>
 
+          <div className="mt-auto" />
+          {planChip}
           <Link
             href="/settings"
-            className="mt-auto flex h-[62px] items-center gap-3 rounded-2xl border border-line px-3 transition-colors hover:border-[#DA5C1B]/50"
+            className="flex h-[62px] items-center gap-3 rounded-2xl border border-line px-3 transition-colors hover:border-[#DA5C1B]/50"
           >
             <Flag code={targetLanguage} size={32} />
             <span className="flex flex-1 flex-col">

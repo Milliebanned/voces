@@ -14,6 +14,7 @@ import { Flag } from "@/components/flag";
 import { Landmark } from "@/components/landmarks";
 import { Stars } from "@/components/night-sky";
 import { PendingOverlay } from "@/components/pending-overlay";
+import { PlanCard, PlanChip, loadPlan } from "@/components/plan-card";
 import { SessionRow } from "@/components/session-row";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { languageName } from "@/lib/languages";
@@ -324,7 +325,10 @@ export default async function DashboardPage() {
 
   const target = profile.target_language ?? "fr";
   const language = languageName(target) ?? target;
-  const progress = await loadProgress(supabase, target);
+  const [progress, plan] = await Promise.all([
+    loadProgress(supabase, target),
+    loadPlan(user.id),
+  ]);
   const name = profile.display_name;
   const hello = `${HELLO[target] ?? "Hello"}${name ? `, ${name}` : ""}`;
 
@@ -409,7 +413,13 @@ export default async function DashboardPage() {
   );
 
   return (
-    <AppShell active="home" name={name} targetLanguage={target} level={profile.skill_level}>
+    <AppShell
+      active="home"
+      name={name}
+      targetLanguage={target}
+      level={profile.skill_level}
+      planChip={<PlanChip plan={plan} />}
+    >
       {/* ------------------------------------------------------------ narrow */}
       <div className="flex flex-col gap-5 px-5 pt-8 lg:hidden">
         <section className="relative flex min-h-[220px] flex-col overflow-hidden rounded-[20px] p-5">
@@ -434,6 +444,8 @@ export default async function DashboardPage() {
             <Chevron />
           </Link>
         </section>
+
+        <PlanCard plan={plan} />
 
         <div>
           <div className="flex items-baseline">
@@ -554,6 +566,8 @@ export default async function DashboardPage() {
               </div>
             </div>
           </section>
+
+          <PlanCard plan={plan} />
 
           <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_416px]">
             <Card>

@@ -1,6 +1,7 @@
 "use server";
 
 import { redirect } from "next/navigation";
+import { freeSecondsLeft, freeSessionCap, isPremium } from "@/lib/billing";
 import { createClient, currentUser } from "@/lib/supabase/server";
 
 export async function startConversation(formData: FormData) {
@@ -16,6 +17,13 @@ export async function startConversation(formData: FormData) {
     .single();
 
   if (!profile?.target_language) redirect("/onboarding");
+
+  if (
+    !(await isPremium(user.id)) &&
+    freeSessionCap(await freeSecondsLeft(user.id)) === null
+  ) {
+    redirect("/premium");
+  }
 
   const scenario = String(formData.get("scenario") ?? "") || null;
 

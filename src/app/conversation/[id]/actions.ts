@@ -1,7 +1,8 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { createClient } from "@/lib/supabase/server";
+import { endFreeSession } from "@/lib/billing";
+import { createClient, currentUser } from "@/lib/supabase/server";
 
 export type Turn = {
   role: "user" | "agent";
@@ -29,6 +30,9 @@ export async function saveTranscript(
     .eq("id", sessionId);
 
   if (error) return { error: error.message };
+
+  const user = await currentUser(supabase);
+  if (user) await endFreeSession(user.id, sessionId);
 
   revalidatePath("/dashboard");
   return { error: null };

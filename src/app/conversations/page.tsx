@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { ACCENT, AppShell, Card } from "@/components/app-shell";
+import { PlanChip, loadPlan } from "@/components/plan-card";
 import { SessionRow } from "@/components/session-row";
 import { languageName } from "@/lib/languages";
 import { loadSessions } from "@/lib/progress";
@@ -22,7 +23,10 @@ export default async function ConversationsPage() {
 
   const target = profile.target_language ?? "fr";
   const language = languageName(target) ?? target;
-  const sessions = await loadSessions(supabase, target);
+  const [sessions, plan] = await Promise.all([
+    loadSessions(supabase, target),
+    loadPlan(user.id),
+  ]);
 
   return (
     <AppShell
@@ -30,6 +34,7 @@ export default async function ConversationsPage() {
       name={profile.display_name}
       targetLanguage={target}
       level={profile.skill_level}
+      planChip={<PlanChip plan={plan} />}
     >
       <div className="px-5 pt-8 lg:px-0 lg:pt-0">
         <Card className="lg:p-7">
