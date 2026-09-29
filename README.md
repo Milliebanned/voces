@@ -41,7 +41,7 @@ Premium is a subscription sold through [RevenueCat Web Billing](https://www.reve
 - The server checks the `premium` entitlement through the RevenueCat REST API before minting every voice token, so the limit can't be bypassed from the page.
 - Free usage is counted on the server when each session's token is minted and when it ends. It is kept where learners can't write to it, and the voice token itself is capped at the time that's left.
 
-**Trying Premium:** the demo deployment runs RevenueCat in sandbox mode. Use Stripe's test card `4242 4242 4242 4242`, with any future expiry date and any CVC. Nothing is charged.
+**Trying Premium:** the demo deployment runs on RevenueCat's Test Store, so no real payment is taken. Choose **Go Premium**, then **Test valid purchase** in the checkout. Test subscriptions renew on an accelerated schedule.
 
 ## Architecture
 
@@ -73,9 +73,9 @@ npm run dev
 | `NEXT_PUBLIC_SUPABASE_URL` | Supabase project settings → API |
 | `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` | Supabase project settings → API Keys → publishable key |
 | `SUPABASE_SECRET_KEY` | Supabase project settings → API Keys → secret key — server-side only, never expose |
-| `NEXT_PUBLIC_REVENUECAT_WEB_KEY` | RevenueCat → API keys → Web Billing app's public key (sandbox key for testing) |
+| `NEXT_PUBLIC_REVENUECAT_WEB_KEY` | RevenueCat → API keys → the web app's public key (a `test_` Test Store key needs no payment provider) |
 
-In Supabase, create two private Storage buckets, `trial-visitors` and `free-usage`, and apply the SQL in `supabase/migrations`. In RevenueCat, create a `premium` entitlement and a current offering containing the Premium product.
+In Supabase, create two private Storage buckets, `trial-visitors` and `free-usage`, and apply the SQL in `supabase/migrations`. In RevenueCat, attach the Premium product to an entitlement (any name) and put it in the current offering.
 
 The app runs at `http://localhost:3000`.
 

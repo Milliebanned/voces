@@ -4,7 +4,6 @@ import { cache } from "react";
 // through RevenueCat Web Billing, has no cap. The RevenueCat app user id is
 // the Supabase user id, so a purchase is tied to the account, not the browser.
 export const FREE_SECONDS = 5 * 60;
-export const ENTITLEMENT = "premium";
 
 // AssemblyAI won't cap a session below 60 seconds, so a few seconds left is
 // still worth a conversation: the page cuts it off at the real remainder.
@@ -93,12 +92,16 @@ export const isPremium = cache(async (userId: string) => {
   ).catch(() => null);
   if (!response?.ok) return false;
   const body = await response.json().catch(() => null);
-  const entitlement = body?.subscriber?.entitlements?.[ENTITLEMENT];
-  if (!entitlement) return false;
+  // VOCES sells a single paid tier, so any active entitlement is Premium,
+  // whatever the RevenueCat project happens to have named it.
+  const entitlements: { expires_date: string | null }[] = Object.values(
+    body?.subscriber?.entitlements ?? {},
+  );
   // A lifetime purchase has no expiry.
-  return (
-    entitlement.expires_date === null ||
-    new Date(entitlement.expires_date).getTime() > Date.now()
+  return entitlements.some(
+    (entitlement) =>
+      entitlement.expires_date === null ||
+      new Date(entitlement.expires_date).getTime() > Date.now(),
   );
 });
 
