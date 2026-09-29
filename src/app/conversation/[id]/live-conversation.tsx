@@ -1288,14 +1288,14 @@ export function LiveConversation({
                 {echoDetected && (
                   <p dir="ltr" className="rounded-2xl bg-black/45 px-4 py-3 text-[13px] leading-relaxed text-white/85 backdrop-blur-sm">
                     Your mic was picking up the voice from your speakers, so
-                    it&apos;s now muted while your partner talks. Wait for them
-                    to finish before you reply, or use headphones to talk over
-                    them freely.
+                    it&apos;s now muted while the AI talks. Wait for it to
+                    finish before you reply, or use headphones to talk over it
+                    freely.
                   </p>
                 )}
                 {turns.length === 0 && !partial && !caption && (
                   <p dir="ltr" className="text-[16px] text-white/85">
-                    Connected — your partner is about to speak.
+                    Connected — the AI is about to speak.
                   </p>
                 )}
 
@@ -1329,7 +1329,7 @@ export function LiveConversation({
                 type="button"
                 onClick={toggleSpeaker}
                 aria-pressed={speakerMuted}
-                aria-label={speakerMuted ? "Unmute your partner" : "Mute your partner"}
+                aria-label={speakerMuted ? "Unmute the AI" : "Mute the AI"}
                 className={`grid size-14 place-items-center rounded-full backdrop-blur-sm transition-colors md:size-[60px] ${
                   speakerMuted ? "bg-white text-[#14110A]" : "bg-white/13 hover:bg-white/20"
                 }`}

@@ -16,7 +16,7 @@ const geistMono = Geist_Mono({
 export const metadata: Metadata = {
   title: "VOCES — Practice the language by actually speaking it",
   description:
-    "Voice-first language immersion. Hold real conversations with an AI partner that adapts to your level, understands you when you fall back on your own language, and brings your weakest vocabulary back until it sticks.",
+    "Voice-first language immersion. Hold real spoken conversations with an AI that adapts to your level, understands you when you fall back on your own language, and brings your weakest vocabulary back until it sticks.",
 };
 
 export default function RootLayout({ children }: LayoutProps<"/">) {

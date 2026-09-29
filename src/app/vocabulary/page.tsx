@@ -53,7 +53,7 @@ export default async function VocabularyPage() {
           Your {languageName(profile.target_language)} vocabulary
         </h1>
         <p className="mt-3 max-w-[540px] text-[15px] leading-relaxed text-muted">
-          Anything saved here can resurface mid-conversation, so your partner
+          Anything saved here can resurface mid-conversation, so the VOCES AI
           creates openings to use it without turning into a quiz.
         </p>
 

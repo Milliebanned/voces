@@ -36,7 +36,7 @@ export default async function NewConversationPage() {
             No voice for {languageName(profile.target_language)} yet
           </h1>
           <p className="mt-3 text-[15px] leading-relaxed text-muted">
-            Your partner can understand{" "}
+            The VOCES AI can understand{" "}
             {languageName(profile.target_language)}, but can&apos;t speak it
             aloud — so a conversation would only go one way. Pick a language it
             can answer in and you&apos;re set.
