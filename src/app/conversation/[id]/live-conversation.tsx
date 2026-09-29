@@ -1053,7 +1053,13 @@ export function LiveConversation({
               <rect x="31.5" y="9" width="6" height="30" rx="3" />
               <rect x="42" y="17.5" width="6" height="13" rx="3" />
             </svg>
-            <span className="text-[15px] font-bold tracking-[0.14em] md:text-[17px]">
+            {/* A phone's header has no room for the name beside the free
+                minutes countdown, so the mark stands alone there. */}
+            <span
+              className={`text-[15px] font-bold tracking-[0.14em] md:text-[17px] ${
+                status === "live" && freeLimit !== null ? "hidden sm:inline" : ""
+              }`}
+            >
               VOCES
             </span>
           </Link>
@@ -1063,8 +1069,9 @@ export function LiveConversation({
                 0:{String(secondsLeft).padStart(2, "0")} left
               </span>
             ) : freeLimit !== null ? (
-              <span className="rounded-full bg-[#DB611C] px-3 py-1 text-[13px] font-semibold tabular-nums">
-                {freeLeftLabel} free left
+              <span className="rounded-full bg-[#DB611C] px-3 py-1 text-[13px] font-semibold whitespace-nowrap tabular-nums">
+                {freeLeftLabel}
+                <span className="hidden sm:inline"> free</span> left
               </span>
             ) : (
               <span className="hidden text-[13px] font-medium text-white/70 tabular-nums sm:inline">
