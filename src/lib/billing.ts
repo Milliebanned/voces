@@ -82,7 +82,10 @@ function settle(usage: Usage): Usage {
 
 /** Whether the learner has an active Premium entitlement in RevenueCat. */
 export const isPremium = cache(async (userId: string) => {
-  const key = process.env.REVENUECAT_SECRET_KEY;
+  // The same Web Billing key and endpoint the RevenueCat web SDK reads a
+  // customer's entitlements with, asked from the server so the page can't
+  // answer for itself.
+  const key = process.env.NEXT_PUBLIC_REVENUECAT_WEB_KEY;
   if (!key) return false;
   const response = await fetch(
     `https://api.revenuecat.com/v1/subscribers/${encodeURIComponent(userId)}`,

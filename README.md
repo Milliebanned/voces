@@ -73,8 +73,7 @@ npm run dev
 | `NEXT_PUBLIC_SUPABASE_URL` | Supabase project settings → API |
 | `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` | Supabase project settings → API Keys → publishable key |
 | `SUPABASE_SECRET_KEY` | Supabase project settings → API Keys → secret key — server-side only, never expose |
-| `NEXT_PUBLIC_REVENUECAT_WEB_KEY` | RevenueCat project settings → API keys → Web Billing public key (sandbox key for testing) |
-| `REVENUECAT_SECRET_KEY` | RevenueCat project settings → API keys → secret key — server-side only |
+| `NEXT_PUBLIC_REVENUECAT_WEB_KEY` | RevenueCat → API keys → Web Billing app's public key (sandbox key for testing) |
 
 In Supabase, create two private Storage buckets, `trial-visitors` and `free-usage`, and apply the SQL in `supabase/migrations`. In RevenueCat, create a `premium` entitlement and a current offering containing the Premium product.
 
