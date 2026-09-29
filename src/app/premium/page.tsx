@@ -15,6 +15,9 @@ export default async function PremiumPage({ searchParams }: PageProps<"/premium"
   if (!user) redirect("/login?next=/premium");
 
   const plan = await loadPlan(user.id);
+  // Passed to the checkout so a signed-in learner isn't asked for it again.
+  const { data } = await supabase.auth.getClaims();
+  const email = typeof data?.claims.email === "string" ? data.claims.email : null;
 
   return (
     <main className="min-h-dvh bg-canvas text-ink">
@@ -42,6 +45,7 @@ export default async function PremiumPage({ searchParams }: PageProps<"/premium"
           apiKey={process.env.NEXT_PUBLIC_REVENUECAT_WEB_KEY ?? null}
           premium={plan.premium}
           initialCode={typeof code === "string" ? code : ""}
+          email={email}
         />
 
         <Link

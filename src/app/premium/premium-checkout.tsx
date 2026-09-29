@@ -60,12 +60,14 @@ export function PremiumCheckout({
   apiKey,
   premium,
   initialCode,
+  email,
 }: {
   appUserId: string;
   apiKey: string | null;
   premium: boolean;
   // A promo code from the link that brought them here (?code=...).
   initialCode: string;
+  email: string | null;
 }) {
   const router = useRouter();
   const [pkg, setPkg] = useState<Package | null>(null);
@@ -116,6 +118,7 @@ export function PremiumCheckout({
         rcPackage: pkg,
         showDiscountCodeField: true,
         discountCode: code.trim() || undefined,
+        customerEmail: email ?? undefined,
       });
       router.push("/dashboard");
       router.refresh();
