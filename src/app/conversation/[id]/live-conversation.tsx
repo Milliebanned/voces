@@ -91,14 +91,38 @@ const MAX_NUDGES_IN_A_ROW = 1;
 // turned their speakers up to compensate, and heard those distort. Each voice is
 // brought up to alba's level here, with a gentle treble lift for the dull ones,
 // and a limiter after so the boost can never clip.
-const VOICE_TUNING: Record<string, { gainDb: number; brightenDb: number }> = {
-  alba: { gainDb: 0, brightenDb: 0 },
-  estelle: { gainDb: 4, brightenDb: 1.5 },
-  lola: { gainDb: 5, brightenDb: 5 },
-  giovanni: { gainDb: 6, brightenDb: 3 },
-  rafael: { gainDb: 8, brightenDb: 3 },
-  juergen: { gainDb: 8, brightenDb: 3 },
+// Head start before each reply's first word. Measured against the service,
+// the Italian and Portuguese voices arrive at real time overall but with about
+// 100 ms of jitter, where the others hold within a few milliseconds; on a
+// slower connection that was heard as the voice skipping and freezing, so they
+// start with a deeper buffer.
+const VOICE_TUNING: Record<
+  string,
+  { gainDb: number; brightenDb: number; startCushionSeconds: number }
+> = {
+  alba: { gainDb: 0, brightenDb: 0, startCushionSeconds: 0.5 },
+  estelle: { gainDb: 4, brightenDb: 1.5, startCushionSeconds: 0.5 },
+  lola: { gainDb: 5, brightenDb: 5, startCushionSeconds: 0.5 },
+  giovanni: { gainDb: 6, brightenDb: 3, startCushionSeconds: 0.9 },
+  rafael: { gainDb: 8, brightenDb: 3, startCushionSeconds: 0.9 },
+  juergen: { gainDb: 8, brightenDb: 3, startCushionSeconds: 0.5 },
 };
+
+// Most voices send each word with its trailing space, but the Italian and
+// Portuguese ones send bare words ("é", "uma", "cidade"), which joined as-is
+// ran the live caption together until the final text replaced it. A space is
+// added only where neither side has one and the next piece isn't punctuation.
+function joinDeltas(parts: string[]) {
+  let text = "";
+  for (const part of parts) {
+    if (!part) continue;
+    if (text && !/\s$/.test(text) && !/^[\s.,!?;:…)»”’'-]/.test(part)) {
+      text += " ";
+    }
+    text += part;
+  }
+  return text;
+}
 
 // Built in blocks rather than one character at a time. This runs on the same
 // thread that has to keep handing audio to the playback worklet, twenty times a
@@ -293,7 +317,7 @@ export function LiveConversation({
     if (agentCommittedRef.current) return;
     agentCommittedRef.current = true;
 
-    const spoken = agentWordsRef.current.map((word) => word.delta).join("");
+    const spoken = joinDeltas(agentWordsRef.current.map((word) => word.delta));
     // The deltas occasionally come up a few words short of the final text, so
     // the authoritative line wins once it has arrived.
     const text = agentFinalRef.current ?? spoken;
@@ -323,10 +347,7 @@ export function LiveConversation({
     if (count <= revealedCountRef.current) return;
     revealedCountRef.current = count;
     setCaption(
-      words
-        .slice(0, count)
-        .map((word) => word.delta)
-        .join(""),
+      joinDeltas(words.slice(0, count).map((word) => word.delta)),
     );
   }, []);
 
@@ -479,11 +500,10 @@ export function LiveConversation({
             ...agentWordsRef.current,
             { delta: message.delta ?? "", startMs: message.start_ms ?? 0 },
           ];
-          // Deltas already carry their own trailing space, so they are joined
-          // as-is rather than padded.
-          agentSpeechRef.current = `${agentSpeechRef.current}${
-            message.delta ?? ""
-          }`.slice(-600);
+          agentSpeechRef.current = joinDeltas([
+            agentSpeechRef.current,
+            message.delta ?? "",
+          ]).slice(-600);
           break;
         case "reply.audio":
           playChunk(message.data);
@@ -658,8 +678,10 @@ export function LiveConversation({
       if (playbackContext.state !== "running") {
         console.warn(`[voces] playback context is ${playbackContext.state}`);
       }
+      const tuning = VOICE_TUNING[voice] ?? VOICE_TUNING.alba;
       const player = new AudioWorkletNode(playbackContext, "playback-processor", {
         outputChannelCount: [1],
+        processorOptions: { startCushionSeconds: tuning.startCushionSeconds },
       });
       // Driven by what is actually audible, not by when the reply was sent,
       // so the indicator doesn't stop while the voice is still playing.
@@ -693,7 +715,6 @@ export function LiveConversation({
         }
         setAgentSpeaking(playing);
       };
-      const tuning = VOICE_TUNING[voice] ?? VOICE_TUNING.alba;
       const brighten = playbackContext.createBiquadFilter();
       brighten.type = "highshelf";
       brighten.frequency.value = 5000;

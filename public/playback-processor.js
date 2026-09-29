@@ -44,7 +44,7 @@ const FADE_OUT_SECONDS = 0.006;
 const PROGRESS_INTERVAL_SECONDS = 0.05;
 
 class PlaybackProcessor extends AudioWorkletProcessor {
-  constructor() {
+  constructor(options) {
     super();
     this.queue = [];
     this.offset = 0;
@@ -52,7 +52,12 @@ class PlaybackProcessor extends AudioWorkletProcessor {
     this.playing = false;
     this.streamEnded = false;
 
-    this.startCushion = Math.round(sampleRate * START_CUSHION_SECONDS);
+    // Some voices arrive with more jitter than others, so the page can ask for
+    // a deeper starting cushion.
+    this.startCushion = Math.round(
+      sampleRate *
+        (options?.processorOptions?.startCushionSeconds ?? START_CUSHION_SECONDS),
+    );
     this.floorCushion = this.startCushion;
     this.maxStartCushion = Math.round(sampleRate * MAX_START_CUSHION_SECONDS);
     this.startMargin = Math.round(sampleRate * START_MARGIN_SECONDS);
